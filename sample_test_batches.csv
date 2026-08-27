@@ -1,0 +1,7 @@
+Batch ID,Machine ID,Fabric Type,Operator,Shift,Total Production Quantity,Production Speed,Waste Quantity,Machine Age,Last Maintenance Date,Humidity,Temperature
+IMPORT-001,M01,Cotton,John Doe,Morning,1500,850,52.5,8.5,2026-08-09,56.0,24.5
+IMPORT-002-HIGHPROD-LOWPCT,M08,Denim,David Kim,Morning,5000,780,100.0,1.5,2026-08-17,58.0,25.0
+IMPORT-003-LOWPROD-HIGHPCT,M02,Silk,Priya Sharma,Night,100,660,30.0,6.2,2026-05-31,38.0,29.0
+IMPORT-004-MISSING-HUMIDITY,M04,Polyester,Carlos Rossi,Afternoon,1800,920,54.0,3.5,2026-08-07,,26.0
+IMPORT-005-OVERDUE-MAINT,M05,Wool,Elena Rostova,Night,900,710,85.0,4.1,2026-05-27,52.0,27.0
+IMPORT-006-ZERO-PROD,M06,Cotton,John Doe,Morning,0,0,10.0,2.8,2026-08-12,55.0,25.0

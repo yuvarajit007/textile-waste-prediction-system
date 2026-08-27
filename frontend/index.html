@@ -1,0 +1,1740 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TexPulse AI - Textile Production Waste Prediction & Risk Classification</title>
+  <meta name="description" content="Intelligent AI system for textile manufacturing industries predicting abnormal waste, risk classification, and explainable root-cause recommendations.">
+  
+  <!-- Google Fonts: Outfit & Inter -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Outfit:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  
+  <!-- FontAwesome Icons -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+
+  <!-- Three.js & OrbitControls for 3D Prototype Model / Digital Twin -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body class="dark-theme">
+  <div class="app-container">
+    
+    <!-- SIDEBAR NAVIGATION -->
+    <aside class="sidebar">
+      <div class="sidebar-header">
+        <div class="brand-logo">
+          <div class="logo-icon">
+            <i class="fa-solid fa-microchip-ai fa-xl"></i>
+          </div>
+          <div class="brand-text">
+            <h2>TexPulse <span>AI</span></h2>
+            <p>Textile Waste Intelligence</p>
+          </div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-title">MAIN NAVIGATION</div>
+        <button class="nav-item active" data-tab="tab-overview" id="nav-overview">
+          <i class="fa-solid fa-chart-pie"></i>
+          <span>Dashboard Overview</span>
+        </button>
+        <button class="nav-item" data-tab="tab-predictor" id="nav-predictor">
+          <i class="fa-solid fa-wand-magic-sparkles"></i>
+          <span>Live Risk Predictor</span>
+          <span class="badge-pulse">AI</span>
+        </button>
+        <button class="nav-item" data-tab="tab-3d-model" id="nav-3d-model">
+          <i class="fa-solid fa-cube"></i>
+          <span>3D Digital Twin</span>
+          <span class="badge-pulse badge-cyan">3D</span>
+        </button>
+        <button class="nav-item" data-tab="tab-root-cause" id="nav-root-cause">
+          <i class="fa-solid fa-brain-circuit"></i>
+          <span>Root-Cause AI</span>
+          <span class="badge-pulse badge-cyan">XAI</span>
+        </button>
+        <button class="nav-item" data-tab="tab-machines" id="nav-machines">
+          <i class="fa-solid fa-gears"></i>
+          <span>Machine Analysis</span>
+        </button>
+        <button class="nav-item" data-tab="tab-fabrics-shifts" id="nav-fabrics-shifts">
+          <i class="fa-solid fa-layer-group"></i>
+          <span>Fabric & Shift Analytics</span>
+        </button>
+        <button class="nav-item" data-tab="tab-operator-maintenance" id="nav-operator-maintenance">
+          <i class="fa-solid fa-wrench"></i>
+          <span>Maintenance & Operators</span>
+        </button>
+        <button class="nav-item" data-tab="tab-batches" id="nav-batches">
+          <i class="fa-solid fa-table-list"></i>
+          <span>Batch Data Explorer</span>
+        </button>
+        <button class="nav-item" data-tab="tab-ingestion-settings" id="nav-ingestion-settings">
+          <i class="fa-solid fa-sliders"></i>
+          <span>Upload & Settings</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="system-status-card">
+          <div class="status-indicator online"></div>
+          <div class="status-info">
+            <span class="status-title">Hybrid ML Engine</span>
+            <span class="status-sub" id="model-status-text">Active & Calibrated</span>
+          </div>
+        </div>
+      </div>
+    </aside>
+
+    <!-- MAIN CONTENT WRAPPER -->
+    <main class="main-content">
+      
+      <!-- TOP APP HEADER -->
+      <header class="top-navbar">
+        <div class="header-left">
+          <button id="sidebar-toggle" class="btn-icon" aria-label="Toggle Sidebar">
+            <i class="fa-solid fa-bars"></i>
+          </button>
+          <div class="breadcrumb">
+            <span class="crumb-root">Textile Production</span>
+            <i class="fa-solid fa-chevron-right crumb-sep"></i>
+            <span class="crumb-current" id="current-tab-title">Dashboard Overview</span>
+          </div>
+        </div>
+
+        <div class="header-actions">
+          <button class="btn btn-outline-cyan" id="btn-plant-report" title="Generate Executive Audit Report for entire plant">
+            <i class="fa-solid fa-file-shield"></i>
+            <span>Executive Audit Report</span>
+          </button>
+          <button class="btn btn-secondary" id="btn-quick-upload">
+            <i class="fa-solid fa-file-arrow-up"></i>
+            <span>Upload File</span>
+          </button>
+          <button class="btn btn-primary" id="btn-quick-predict">
+            <i class="fa-solid fa-plus"></i>
+            <span>New Prediction</span>
+          </button>
+          <button class="btn btn-icon" id="btn-refresh-all" title="Refresh Dashboard Data">
+            <i class="fa-solid fa-arrows-rotate"></i>
+          </button>
+        </div>
+      </header>
+
+      <!-- TAB CONTENTS -->
+      <div class="content-body">
+
+        <!-- ============================================================ -->
+        <!-- TAB 1: DASHBOARD OVERVIEW -->
+        <!-- ============================================================ -->
+        <section id="tab-overview" class="tab-pane active">
+          
+          <!-- URGENT ALERTS BANNER -->
+          <div class="alert-banner hidden" id="high-risk-alert-banner">
+            <div class="alert-icon">
+              <i class="fa-solid fa-triangle-exclamation"></i>
+            </div>
+            <div class="alert-content">
+              <h4>Abnormal Waste Risk Detected in Recent Batches</h4>
+              <p id="alert-banner-text">Multiple batches require immediate tension and speed adjustments.</p>
+            </div>
+            <button class="btn btn-sm btn-outline-danger" id="btn-view-alert-batches">Inspect Batches</button>
+          </div>
+
+          <!-- SUMMARY KPI CARDS -->
+          <div class="kpi-grid">
+            <div class="kpi-card card-glass">
+              <div class="kpi-icon icon-blue">
+                <i class="fa-solid fa-boxes-stacked"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Total Batches</span>
+                <h3 class="kpi-value" id="kpi-total-batches">--</h3>
+                <span class="kpi-trend" id="kpi-total-prod">-- kg processed</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-glass">
+              <div class="kpi-icon icon-purple">
+                <i class="fa-solid fa-percent"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Average Waste %</span>
+                <h3 class="kpi-value" id="kpi-avg-waste">--%</h3>
+                <span class="kpi-trend font-accent" id="kpi-total-waste">-- kg total waste</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-glass border-normal">
+              <div class="kpi-icon icon-green">
+                <i class="fa-solid fa-circle-check"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Normal Batches</span>
+                <h3 class="kpi-value text-normal" id="kpi-normal-count">--</h3>
+                <span class="kpi-trend text-normal">Within expected range</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-glass border-warning">
+              <div class="kpi-icon icon-yellow">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Warning Batches</span>
+                <h3 class="kpi-value text-warning" id="kpi-warning-count">--</h3>
+                <span class="kpi-trend text-warning">Moderate deviation</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-glass border-danger">
+              <div class="kpi-icon icon-red">
+                <i class="fa-solid fa-fire-flame-curved"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">High-Risk Batches</span>
+                <h3 class="kpi-value text-danger" id="kpi-high-risk-count">--</h3>
+                <span class="kpi-trend text-danger">Action required</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- OVERVIEW CHARTS ROW -->
+          <div class="grid-2-col mt-4">
+            
+            <!-- Risk Classification Distribution Chart -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Risk Classification Distribution</h3>
+                  <p class="card-subtitle">Breakdown of all batches into Normal, Warning, and High Risk tiers</p>
+                </div>
+                <div class="badge badge-subtle">Hybrid AI</div>
+              </div>
+              <div class="card-body chart-container" style="height: 280px; position: relative;">
+                <canvas id="chart-risk-donut"></canvas>
+              </div>
+            </div>
+
+            <!-- Machine Average Waste % Comparison -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Machine-Wise Waste Percentage</h3>
+                  <p class="card-subtitle">Historical average waste % by Machine ID</p>
+                </div>
+                <div class="legend-indicator">
+                  <span class="dot dot-danger"></span> Overdue Maint.
+                  <span class="dot dot-normal ml-2"></span> Good Maint.
+                </div>
+              </div>
+              <div class="card-body chart-container" style="height: 280px;">
+                <canvas id="chart-machine-waste"></canvas>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- HIGHLIGHT CARDS & RECENT FEED ROW -->
+          <div class="grid-4-col mt-4">
+            
+            <!-- Root-Cause AI Spotlight Card -->
+            <div class="card card-glass highlight-box border-purple">
+              <div class="card-header">
+                <h3 class="card-title"><i class="fa-solid fa-brain-circuit text-purple"></i> Root-Cause AI</h3>
+              </div>
+              <div class="card-body">
+                <div class="benchmark-item">
+                  <span class="benchmark-label">Leading Failure Mode:</span>
+                  <div class="benchmark-val font-bold text-warning" id="bench-rc-top-cause" style="font-size: 0.92rem;">Analyzing...</div>
+                </div>
+                <div class="benchmark-item mt-2">
+                  <span class="benchmark-label">Potential Waste Savings:</span>
+                  <div class="benchmark-val font-bold text-normal" id="bench-rc-savings">-- kg</div>
+                </div>
+                <button class="btn btn-sm btn-outline-cyan mt-3 w-100" id="btn-goto-rca">
+                  <i class="fa-solid fa-arrow-right"></i> Open Root-Cause Studio
+                </button>
+              </div>
+            </div>
+
+            <!-- Machine Performance Summary Card -->
+            <div class="card card-glass highlight-box">
+              <div class="card-header">
+                <h3 class="card-title"><i class="fa-solid fa-trophy text-yellow"></i> Machine Benchmarks</h3>
+              </div>
+              <div class="card-body">
+                <div class="benchmark-item">
+                  <span class="benchmark-label">Lowest Waste (Best):</span>
+                  <div class="benchmark-val text-normal" id="bench-lowest-machine">--</div>
+                </div>
+                <div class="benchmark-item mt-3">
+                  <span class="benchmark-label">Highest Waste (Attention):</span>
+                  <div class="benchmark-val text-danger" id="bench-highest-machine">--</div>
+                </div>
+                <div class="benchmark-item mt-3">
+                  <span class="benchmark-label">Age-Waste Correlation:</span>
+                  <div class="benchmark-val font-bold" id="bench-age-corr">--</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- High-Risk Fabrics Card -->
+            <div class="card card-glass highlight-box">
+              <div class="card-header">
+                <h3 class="card-title"><i class="fa-solid fa-triangle-exclamation text-danger"></i> High-Risk Fabrics</h3>
+              </div>
+              <div class="card-body">
+                <p class="text-muted text-sm mb-2">Fabrics frequently requiring specialized tension or slower operating speeds:</p>
+                <div id="high-risk-fabrics-list" class="tags-container">
+                  <span class="tag tag-danger">Silk</span>
+                  <span class="tag tag-danger">Wool</span>
+                </div>
+              </div>
+            </div>
+
+            <!-- Principle Reminder Card -->
+            <div class="card card-glass highlight-box border-accent">
+              <div class="card-header">
+                <h3 class="card-title"><i class="fa-solid fa-circle-info text-cyan"></i> Core Design Principle</h3>
+              </div>
+              <div class="card-body">
+                <div class="formula-badge">
+                  <code>Waste % = (Waste Qty / Total Prod) × 100</code>
+                </div>
+                <p class="text-sm text-muted mt-2">
+                  Batches are evaluated on <strong>Waste Percentage</strong> rather than absolute kilograms. A 5,000 kg run with 100 kg waste is 2.0% (Normal).
+                </p>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- RECENT PREDICTIONS TABLE PREVIEW -->
+          <div class="card card-glass mt-4">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Recent Production Batches</h3>
+                <p class="card-subtitle">Real-time telemetry and risk predictions</p>
+              </div>
+              <button class="btn btn-sm btn-secondary" id="btn-view-all-batches">View All in Explorer</button>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Batch ID</th>
+                    <th>Machine</th>
+                    <th>Fabric</th>
+                    <th>Shift</th>
+                    <th>Operator</th>
+                    <th>Total Prod</th>
+                    <th>Waste Qty</th>
+                    <th>Waste %</th>
+                    <th>Risk Classification</th>
+                    <th>Score</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="overview-recent-tbody">
+                  <tr><td colspan="11" class="text-center py-4">Loading batches...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB 2: LIVE PREDICTOR & WHAT-IF SIMULATOR -->
+        <!-- ============================================================ -->
+        <section id="tab-predictor" class="tab-pane">
+          
+          <!-- QUICK TEST-CASE PRESETS BAR -->
+          <div class="card card-glass mb-4">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title"><i class="fa-solid fa-flask-vial text-purple"></i> Quick Test-Case Presets</h3>
+                <p class="card-subtitle">Load validated edge cases with one click to test AI risk classification and explainability:</p>
+              </div>
+            </div>
+            <div class="card-body">
+              <div class="preset-buttons-grid">
+                <button class="btn-preset" data-preset="normal">
+                  <span class="preset-title">Standard Normal Batch</span>
+                  <span class="preset-desc">Cotton on M08, 1,200kg / 42kg (3.5%)</span>
+                </button>
+                <button class="btn-preset" data-preset="high_prod_low_pct">
+                  <span class="preset-title">High Prod + High Absolute Waste</span>
+                  <span class="preset-desc">Denim 5,000kg / 100kg = 2.0% (NORMAL)</span>
+                </button>
+                <button class="btn-preset" data-preset="low_prod_high_pct">
+                  <span class="preset-title">Low Prod + High Waste %</span>
+                  <span class="preset-desc">Silk 100kg / 30kg = 30.0% (HIGH RISK)</span>
+                </button>
+                <button class="btn-preset" data-preset="new_machine">
+                  <span class="preset-title">New Machine (Cold-Start M10)</span>
+                  <span class="preset-desc">Brand new loom, adaptive baseline fallback</span>
+                </button>
+                <button class="btn-preset" data-preset="overdue_maint">
+                  <span class="preset-title">Maintenance Overdue</span>
+                  <span class="preset-desc">M02 overdue 95 days, mechanical friction risk</span>
+                </button>
+                <button class="btn-preset" data-preset="missing_humidity">
+                  <span class="preset-title">Missing Humidity</span>
+                  <span class="preset-desc">Telemetry offline, graceful imputation</span>
+                </button>
+                <button class="btn-preset" data-preset="high_speed_stress">
+                  <span class="preset-title">Abnormal Production Speed</span>
+                  <span class="preset-desc">Silk running at 980 rpm (150% above safe pace)</span>
+                </button>
+                <button class="btn-preset" data-preset="zero_prod">
+                  <span class="preset-title">Zero Production Guard</span>
+                  <span class="preset-desc">0 kg input, division-by-zero prevention</span>
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- PREDICTOR GRID: FORM + RESULTS -->
+          <div class="grid-2-col">
+            
+            <!-- INPUT FORM CARD -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Production Batch Parameters</h3>
+                  <p class="card-subtitle">Enter real-time telemetry or simulated run settings</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <form id="predict-form">
+                  
+                  <div class="form-row">
+                    <div class="form-group col-6">
+                      <label for="p-batch-id">Batch ID</label>
+                      <input type="text" id="p-batch-id" class="form-control" value="BATCH-2026-LIVE" required>
+                    </div>
+                    <div class="form-group col-6">
+                      <label for="p-machine-id">Machine ID</label>
+                      <select id="p-machine-id" class="form-control" required>
+                        <option value="M01">M01 (8.5 yrs - Good)</option>
+                        <option value="M02">M02 (6.2 yrs - Overdue)</option>
+                        <option value="M03">M03 (9.0 yrs - Mature)</option>
+                        <option value="M04">M04 (3.5 yrs - Good)</option>
+                        <option value="M05">M05 (4.1 yrs - Overdue)</option>
+                        <option value="M06">M06 (2.8 yrs - Good)</option>
+                        <option value="M07">M07 (5.0 yrs - Approaching)</option>
+                        <option value="M08">M08 (1.5 yrs - High Speed)</option>
+                        <option value="M09">M09 (0.8 yrs - New)</option>
+                        <option value="M10">M10 (0.1 yrs - Brand New)</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group col-4">
+                      <label for="p-fabric-type">Fabric Type</label>
+                      <select id="p-fabric-type" class="form-control" required>
+                        <option value="Cotton">Cotton</option>
+                        <option value="Polyester">Polyester</option>
+                        <option value="Silk">Silk (Delicate)</option>
+                        <option value="Denim">Denim (Heavy)</option>
+                        <option value="Wool">Wool</option>
+                        <option value="Linen">Linen</option>
+                        <option value="Rayon">Rayon</option>
+                      </select>
+                    </div>
+                    <div class="form-group col-4">
+                      <label for="p-shift">Shift</label>
+                      <select id="p-shift" class="form-control" required>
+                        <option value="Morning">Morning</option>
+                        <option value="Afternoon">Afternoon</option>
+                        <option value="Night">Night</option>
+                      </select>
+                    </div>
+                    <div class="form-group col-4">
+                      <label for="p-operator">Operator</label>
+                      <select id="p-operator" class="form-control" required>
+                        <option value="John Doe">John Doe</option>
+                        <option value="Priya Sharma">Priya Sharma</option>
+                        <option value="Carlos Rossi">Carlos Rossi</option>
+                        <option value="Fatima Al-Mansoor">Fatima Al-Mansoor</option>
+                        <option value="Wei Zhang">Wei Zhang</option>
+                        <option value="Elena Rostova">Elena Rostova</option>
+                        <option value="David Kim">David Kim</option>
+                        <option value="Marcus Vance">Marcus Vance</option>
+                      </select>
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group col-6">
+                      <label for="p-total-prod">Total Production Quantity (kg)</label>
+                      <input type="number" id="p-total-prod" class="form-control" value="1200" step="1" required>
+                    </div>
+                    <div class="form-group col-6">
+                      <label for="p-waste-qty">Waste Quantity (kg)</label>
+                      <input type="number" id="p-waste-qty" class="form-control" value="45" step="0.1" required>
+                    </div>
+                  </div>
+
+                  <!-- Live Computed Waste % Indicator -->
+                  <div class="live-calc-box">
+                    <span class="calc-title">Computed Waste Percentage:</span>
+                    <span class="calc-value" id="p-computed-waste-display">3.75%</span>
+                  </div>
+
+                  <div class="form-row mt-3">
+                    <div class="form-group col-6">
+                      <label for="p-speed">Production Speed (rpm / m/min)</label>
+                      <input type="number" id="p-speed" class="form-control" value="850" step="10" required>
+                    </div>
+                    <div class="form-group col-6">
+                      <label for="p-maint-date">Last Maintenance Date</label>
+                      <input type="date" id="p-maint-date" class="form-control" required>
+                    </div>
+                  </div>
+
+                  <div class="form-row">
+                    <div class="form-group col-4">
+                      <label for="p-machine-age">Machine Age (Years)</label>
+                      <input type="number" id="p-machine-age" class="form-control" value="3.5" step="0.1" required>
+                    </div>
+                    <div class="form-group col-4">
+                      <label for="p-humidity">Humidity (% RH)</label>
+                      <input type="number" id="p-humidity" class="form-control" placeholder="e.g. 55 (leave empty for missing)" step="0.5">
+                    </div>
+                    <div class="form-group col-4">
+                      <label for="p-temperature">Temperature (°C)</label>
+                      <input type="number" id="p-temperature" class="form-control" value="25.5" step="0.5" required>
+                    </div>
+                  </div>
+
+                  <div class="form-actions mt-4">
+                    <button type="submit" class="btn btn-primary btn-block" id="btn-run-prediction">
+                      <i class="fa-solid fa-wand-magic-sparkles"></i>
+                      <span>Analyze Risk & Predict</span>
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </div>
+
+            <!-- PREDICTION OUTPUT & EXPLANATION CARD -->
+            <div class="card card-glass" id="prediction-result-panel">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">AI Prediction & Risk Analysis</h3>
+                  <p class="card-subtitle">Multi-factor intelligence, anomaly detection, and explainability</p>
+                </div>
+                <div class="badge" id="res-confidence-badge">Confidence: 95%</div>
+              </div>
+              <div class="card-body">
+                
+                <!-- GAUGE & CLASSIFICATION ROW -->
+                <div class="result-highlight-row">
+                  <div class="gauge-container">
+                    <div class="circular-progress" id="risk-gauge-circle">
+                      <div class="inner-circle">
+                        <span class="gauge-number" id="res-risk-score">0</span>
+                        <span class="gauge-sub">/ 100 Risk</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div class="classification-details">
+                    <span class="res-label">Risk Classification</span>
+                    <div class="risk-badge-large badge-normal" id="res-risk-badge">
+                      <i class="fa-solid fa-circle-check"></i>
+                      <span id="res-risk-text">NORMAL</span>
+                    </div>
+
+                    <div class="mt-3">
+                      <div class="sub-metric">
+                        <span class="sub-label">Waste Percentage:</span>
+                        <span class="sub-val" id="res-waste-pct">0.00%</span>
+                      </div>
+                      <div class="sub-metric mt-1">
+                        <span class="sub-label">Abnormal Anomaly:</span>
+                        <span class="sub-val" id="res-is-abnormal">No</span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- FACTOR CONTRIBUTIONS BARS -->
+                <div class="factor-breakdown-section mt-4">
+                  <h4 class="section-heading"><i class="fa-solid fa-chart-column text-cyan"></i> Risk Factor Breakdown</h4>
+                  
+                  <div class="factor-bar-item">
+                    <div class="factor-info">
+                      <span>Waste Deviation vs Baseline</span>
+                      <span id="factor-waste-val">0%</span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" id="bar-factor-waste" style="width: 0%;"></div></div>
+                  </div>
+
+                  <div class="factor-bar-item mt-2">
+                    <div class="factor-info">
+                      <span>Maintenance Overdue Friction</span>
+                      <span id="factor-maint-val">0%</span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" id="bar-factor-maint" style="width: 0%;"></div></div>
+                  </div>
+
+                  <div class="factor-bar-item mt-2">
+                    <div class="factor-info">
+                      <span>Production Speed Stress</span>
+                      <span id="factor-speed-val">0%</span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" id="bar-factor-speed" style="width: 0%;"></div></div>
+                  </div>
+
+                  <div class="factor-bar-item mt-2">
+                    <div class="factor-info">
+                      <span>Environmental / Machine Age</span>
+                      <span id="factor-env-val">0%</span>
+                    </div>
+                    <div class="progress-track"><div class="progress-fill" id="bar-factor-env" style="width: 0%;"></div></div>
+                  </div>
+                </div>
+
+                <!-- EXPLAINABILITY REASONS -->
+                <div class="xai-section mt-4">
+                  <h4 class="section-heading"><i class="fa-solid fa-circle-question text-purple"></i> Explainable Prediction Reasons</h4>
+                  <ul class="reasons-list" id="res-reasons-list">
+                    <li>Execute analysis to view explainability trace.</li>
+                  </ul>
+                </div>
+
+                <!-- RECOMMENDED MITIGATION ACTIONS -->
+                <div class="actions-section mt-4">
+                  <h4 class="section-heading"><i class="fa-solid fa-list-check text-green"></i> Recommended Factory Actions</h4>
+                  <ul class="actions-list" id="res-actions-list">
+                    <li>Maintain nominal operational parameters.</li>
+                  </ul>
+                </div>
+
+                <!-- ROOT-CAUSE AI PRIMARY CAUSE CALLOUT IN PREDICTOR -->
+                <div class="rca-pred-callout mt-4 p-3 card-glass hidden" id="pred-rca-container">
+                  <div class="flex-between">
+                    <span class="badge badge-danger" id="pred-rca-badge">ROOT CAUSE IDENTIFIED</span>
+                    <span class="text-xs font-accent" id="pred-rca-pct">--% Attribution</span>
+                  </div>
+                  <h5 class="mt-2 font-bold text-yellow" id="pred-rca-title">Primary Driver</h5>
+                  <p class="text-xs text-muted mt-1" id="pred-rca-explanation">Diagnostic explanation...</p>
+                  <button type="button" class="btn btn-sm btn-outline-cyan mt-2 w-100" id="btn-pred-to-rca">
+                    <i class="fa-solid fa-brain-circuit"></i> Deep-Dive in Root-Cause Studio
+                  </button>
+                </div>
+
+                <div class="mt-4 pt-2 border-top prediction-action-buttons">
+                  <button class="btn btn-secondary flex-1" id="btn-save-predicted-batch">
+                    <i class="fa-solid fa-floppy-disk"></i>
+                    <span>Save to Database</span>
+                  </button>
+                  <button class="btn btn-primary flex-1 btn-report-glow" id="btn-open-batch-report">
+                    <i class="fa-solid fa-file-contract"></i>
+                    <span>Generate Finalized Report</span>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB: ROOT-CAUSE AI & EXPLAINABILITY STUDIO -->
+        <!-- ============================================================ -->
+        <section id="tab-root-cause" class="tab-pane">
+          
+          <!-- ROOT-CAUSE HERO / HEADER -->
+          <div class="card card-glass mb-4 rca-hero-card">
+            <div class="rca-hero-content">
+              <div class="rca-hero-badge"><i class="fa-solid fa-brain-circuit"></i> Explainable AI Diagnostic Engine</div>
+              <h2 class="rca-hero-title">Root-Cause AI & Causal Attribution Studio</h2>
+              <p class="rca-hero-subtitle">
+                Deconstruct multi-dimensional manufacturing waste spikes into exact mechanical wear, speed stress, atmospheric deviations, material complexity, and operator shift dynamics. Interactive "What-If" simulations optimize parameters to safely recover baseline efficiency.
+              </p>
+            </div>
+            <div class="rca-hero-actions">
+              <button class="btn btn-outline-cyan btn-sm" id="btn-rca-refresh">
+                <i class="fa-solid fa-arrows-rotate"></i> Refresh Diagnostic Baseline
+              </button>
+            </div>
+          </div>
+
+          <!-- PLANT-WIDE ROOT CAUSE KPI CARDS -->
+          <div class="kpi-grid mb-4">
+            <div class="kpi-card card-glass border-danger">
+              <div class="kpi-icon icon-red">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Abnormal Waste Events</span>
+                <h3 class="kpi-value" id="rc-kpi-events">--</h3>
+                <span class="kpi-trend text-danger" id="rc-kpi-events-sub">Scanned from valid history</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-glass border-warning">
+              <div class="kpi-icon icon-yellow">
+                <i class="fa-solid fa-magnifying-glass-chart"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Leading Plant Failure Mode</span>
+                <h3 class="kpi-value text-warning" id="rc-kpi-leading-cause" style="font-size: 1.15rem; line-height: 1.3;">--</h3>
+                <span class="kpi-trend text-warning" id="rc-kpi-leading-share">--% of all failures</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-glass border-normal">
+              <div class="kpi-icon icon-green">
+                <i class="fa-solid fa-piggy-bank"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Potential Waste Recoverable</span>
+                <h3 class="kpi-value text-normal" id="rc-kpi-potential-savings">-- kg</h3>
+                <span class="kpi-trend text-normal">Via prescriptive playbooks</span>
+              </div>
+            </div>
+
+            <div class="kpi-card card-glass border-purple">
+              <div class="kpi-icon icon-purple">
+                <i class="fa-solid fa-layer-group"></i>
+              </div>
+              <div class="kpi-data">
+                <span class="kpi-label">Primary Failure Category</span>
+                <h3 class="kpi-value text-purple" id="rc-kpi-top-category">--</h3>
+                <span class="kpi-trend font-accent" id="rc-kpi-top-category-pct">Highest aggregate impact</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 1: PLANT-WIDE FAILURE MODES & PARETO ANALYSIS -->
+          <div class="grid-2-col mb-4">
+            
+            <!-- Pareto Distribution Chart -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title"><i class="fa-solid fa-chart-column text-cyan"></i> Plant Failure Modes Pareto Analysis</h3>
+                  <p class="card-subtitle">Identifies the 20% of root causes driving 80% of abnormal factory waste</p>
+                </div>
+                <div class="badge badge-cyan">Pareto 80/20</div>
+              </div>
+              <div class="card-body chart-container" style="height: 320px; position: relative;">
+                <canvas id="chart-rc-pareto"></canvas>
+              </div>
+            </div>
+
+            <!-- Category Distribution & Strategic Recommendations -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title"><i class="fa-solid fa-shield-halved text-purple"></i> Causal Category Share & Factory Directives</h3>
+                  <p class="card-subtitle">Holistic domain breakdown and automated engineering remediation</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <div class="chart-container mb-3" style="height: 180px; position: relative;">
+                  <canvas id="chart-rc-category"></canvas>
+                </div>
+                <div class="strategic-recs-container mt-3" id="rc-strategic-recs-list">
+                  <div class="text-muted text-sm text-center py-2">Loading strategic factory directives...</div>
+                </div>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- SECTION 2: INTERACTIVE BATCH DIAGNOSTIC & WHAT-IF SIMULATOR -->
+          <div class="card card-glass mb-4 border-accent">
+            <div class="card-header flex-between flex-wrap gap-2">
+              <div>
+                <h3 class="card-title"><i class="fa-solid fa-microscope text-cyan"></i> Interactive Batch Diagnostic & Counterfactual "What-If" Studio</h3>
+                <p class="card-subtitle">Select any recorded batch or telemetry to inspect its causal fingerprint and simulate optimizations in real time.</p>
+              </div>
+              <div class="batch-select-bar flex-center gap-2">
+                <label for="rc-batch-selector" class="text-sm text-muted">Select Batch:</label>
+                <select id="rc-batch-selector" class="form-control form-control-sm" style="min-width: 240px;">
+                  <option value="">Loading abnormal batches...</option>
+                </select>
+                <button class="btn btn-sm btn-primary" id="btn-rc-diagnose-selected">
+                  <i class="fa-solid fa-wand-magic-sparkles"></i> Diagnose
+                </button>
+              </div>
+            </div>
+            
+            <div class="card-body">
+              <div class="grid-2-col gap-4">
+                
+                <!-- LEFT COLUMN: CAUSAL ATTRIBUTION & EXPLAINABILITY -->
+                <div class="rca-col">
+                  
+                  <!-- Primary Cause Spotlight Card -->
+                  <div class="rca-primary-card card-glass mb-3" id="rc-primary-spotlight">
+                    <div class="rca-card-badge-row">
+                      <span class="badge badge-danger" id="rc-severity-badge">CRITICAL CAUSE</span>
+                      <span class="badge badge-subtle" id="rc-category-badge">Operational / Speed</span>
+                      <span class="rca-attribution-pill" id="rc-attribution-pct-pill">85.4% Attribution</span>
+                    </div>
+                    <h3 class="rca-cause-title mt-2" id="rc-primary-title">Excess Loom Speed vs Fabric Limit</h3>
+                    <p class="rca-cause-explanation mt-1" id="rc-primary-explanation">
+                      Loom operating speed exceeds yarn tensile limit, inducing warp shock.
+                    </p>
+                    <div class="rca-cause-metrics mt-3">
+                      <div class="rca-metric-item">
+                        <span class="rca-m-label">Impact Score:</span>
+                        <span class="rca-m-val font-bold text-danger" id="rc-impact-points">78.5 / 100</span>
+                      </div>
+                      <div class="rca-metric-item">
+                        <span class="rca-m-label">Active Batch:</span>
+                        <span class="rca-m-val font-bold text-cyan" id="rc-active-batch-id">--</span>
+                      </div>
+                      <div class="rca-metric-item">
+                        <span class="rca-m-label">Observed Waste %:</span>
+                        <span class="rca-m-val font-bold text-warning" id="rc-active-waste-pct">--%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Secondary Contributing Causes -->
+                  <div class="card card-glass mb-3 p-3" id="rc-secondary-card">
+                    <h4 class="section-heading mb-2"><i class="fa-solid fa-diagram-project text-yellow"></i> Secondary Contributing Factors</h4>
+                    <div id="rc-secondary-list" class="secondary-causes-list">
+                      <span class="text-sm text-muted">No secondary triggers detected.</span>
+                    </div>
+                  </div>
+
+                  <!-- SHAP-Style Multi-Factor Decomposition -->
+                  <div class="card card-glass p-3">
+                    <div class="flex-between mb-2">
+                      <h4 class="section-heading"><i class="fa-solid fa-chart-simple text-purple"></i> Multi-Factor Mathematical Attribution (SHAP-Style)</h4>
+                      <span class="text-xs text-muted">Raw Risk Deconstruction</span>
+                    </div>
+                    <div class="rca-attribution-bars" id="rc-attribution-bars-container">
+                      <!-- Rendered dynamically -->
+                    </div>
+                  </div>
+
+                </div>
+
+                <!-- RIGHT COLUMN: WHAT-IF SIMULATOR & PRESCRIPTIVE PLAYBOOK -->
+                <div class="rca-col">
+                  
+                  <!-- WHAT-IF SIMULATOR SANDBOX -->
+                  <div class="card card-glass mb-3 p-3 border-cyan">
+                    <div class="flex-between mb-2">
+                      <div>
+                        <h4 class="section-heading text-cyan"><i class="fa-solid fa-sliders"></i> Interactive Counterfactual "What-If" Sandbox</h4>
+                        <p class="card-subtitle text-xs">Adjust operating levers to test how parameter tweaks eliminate risk before adjusting physical machinery.</p>
+                      </div>
+                      <div class="flex-center gap-1">
+                        <button class="btn btn-xs btn-outline-cyan" id="btn-apply-optimal-cf" title="Auto-tune sliders to AI safe operating baseline">
+                          <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Optimize
+                        </button>
+                        <button class="btn btn-xs btn-secondary" id="btn-reset-cf" title="Reset sliders to batch telemetry">
+                          <i class="fa-solid fa-rotate-left"></i> Reset
+                        </button>
+                      </div>
+                    </div>
+
+                    <!-- SLIDERS GRID -->
+                    <div class="simulator-sliders-grid mt-3">
+                      
+                      <!-- Speed Slider -->
+                      <div class="sim-slider-item">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-gauge-high text-cyan"></i> Operating Speed</span>
+                          <span class="slider-val text-cyan font-bold" id="lbl-sim-speed">850 RPM</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-sim-speed" min="400" max="1200" step="10" value="850">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>400 RPM</span><span id="lbl-safe-speed-hint">Safe Limit: ~750</span><span>1200 RPM</span></div>
+                      </div>
+
+                      <!-- Humidity Slider -->
+                      <div class="sim-slider-item mt-3">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-droplet text-blue"></i> Relative Humidity</span>
+                          <span class="slider-val text-blue font-bold" id="lbl-sim-humidity">55% RH</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-sim-humidity" min="20" max="90" step="1" value="55">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>20% (Dry)</span><span>Optimal: 55-65%</span><span>90% (Wet)</span></div>
+                      </div>
+
+                      <!-- Maintenance Age Slider -->
+                      <div class="sim-slider-item mt-3">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-wrench text-yellow"></i> Days Since Maintenance</span>
+                          <span class="slider-val text-yellow font-bold" id="lbl-sim-maint">45 Days</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-sim-maint" min="0" max="150" step="1" value="45">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>0 (Fresh)</span><span>Limit: 60d</span><span>150d (Overdue)</span></div>
+                      </div>
+
+                      <!-- Temperature Slider -->
+                      <div class="sim-slider-item mt-3">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-temperature-half text-red"></i> Ambient Temperature</span>
+                          <span class="slider-val text-red font-bold" id="lbl-sim-temp">25.0°C</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-sim-temp" min="15" max="40" step="0.5" value="25.0">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>15°C</span><span>Target: 22-26°C</span><span>40°C</span></div>
+                      </div>
+
+                    </div>
+
+                    <!-- SIMULATOR BEFORE VS AFTER SCORECARDS -->
+                    <div class="sim-results-grid mt-4">
+                      <div class="sim-stat-box">
+                        <span class="sim-stat-label">Simulated Risk Score</span>
+                        <div class="sim-stat-value" id="sim-res-risk-score">--</div>
+                        <span class="sim-stat-delta" id="sim-res-risk-delta">--</span>
+                      </div>
+                      <div class="sim-stat-box">
+                        <span class="sim-stat-label">Simulated Waste %</span>
+                        <div class="sim-stat-value" id="sim-res-waste-pct">--%</div>
+                        <span class="sim-stat-delta text-normal" id="sim-res-waste-delta">--</span>
+                      </div>
+                      <div class="sim-stat-box border-normal">
+                        <span class="sim-stat-label">Estimated Waste Saved</span>
+                        <div class="sim-stat-value text-normal" id="sim-res-kg-saved">-- kg</div>
+                        <span class="sim-stat-delta text-normal" id="sim-res-pct-saved">Per Batch Cycle</span>
+                      </div>
+                    </div>
+
+                  </div>
+
+                  <!-- PRESCRIPTIVE REMEDIATION PLAYBOOK -->
+                  <div class="card card-glass p-3">
+                    <div class="flex-between mb-2">
+                      <h4 class="section-heading text-green"><i class="fa-solid fa-clipboard-list"></i> Prescriptive Remediation Playbook</h4>
+                      <span class="badge badge-normal" id="rc-playbook-steps-count">0 Steps</span>
+                    </div>
+                    <div class="rca-playbook-list" id="rc-playbook-container">
+                      <span class="text-sm text-muted">Run diagnosis to generate prioritized steps.</span>
+                    </div>
+                  </div>
+
+                </div>
+
+              </div>
+            </div>
+          </div>
+
+          <!-- SECTION 3: MACHINE-WISE ROOT CAUSE MATRIX TABLE -->
+          <div class="card card-glass">
+            <div class="card-header flex-between">
+              <div>
+                <h3 class="card-title"><i class="fa-solid fa-server text-yellow"></i> Machine Root-Cause Vulnerability Matrix</h3>
+                <p class="card-subtitle">Cross-tabulation of failure modes across weaving machines</p>
+              </div>
+              <span class="badge badge-subtle">Plant Floor Diagnostics</span>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Machine ID</th>
+                    <th>Total Abnormal Events</th>
+                    <th>Mechanical Wear Failures</th>
+                    <th>Speed Stress Events</th>
+                    <th>Humidity Deviations</th>
+                    <th>Dominant Failure Driver</th>
+                    <th>Action</th>
+                  </tr>
+                </thead>
+                <tbody id="rc-machine-matrix-tbody">
+                  <tr><td colspan="7" class="text-center py-4 text-muted">Loading machine failure matrix...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB: 3D DIGITAL TWIN & PROTOTYPE MODEL -->
+        <!-- ============================================================ -->
+        <section id="tab-3d-model" class="tab-pane">
+          
+          <!-- 3D HERO HEADER & TOP CONTROLS -->
+          <div class="card card-glass p-3 mb-3">
+            <div class="flex-between flex-wrap gap-2">
+              <div>
+                <div class="flex-center gap-2">
+                  <h2 class="font-bold text-cyan" style="font-size: 1.25rem;"><i class="fa-solid fa-cube"></i> Industrial Loom 3D Digital Twin & Prototype Simulator</h2>
+                  <span class="badge badge-normal" id="dt-simulation-status-badge"><i class="fa-solid fa-circle text-xs" style="color: #10B981;"></i> Real-Time Telemetry Active</span>
+                </div>
+                <p class="text-xs text-muted mt-1">Interactive physical kinematics, mechanical stress analysis, thermal heatmaps, exploded sub-assemblies, and live operating parameters.</p>
+              </div>
+
+              <!-- Quick View Mode Buttons -->
+              <div class="view-mode-group">
+                <button class="btn-mode-pill active" data-mode="realistic" id="btn-mode-realistic" title="Realistic Industrial Shading with PBR lighting">
+                  <i class="fa-solid fa-cube"></i> <span>Realistic PBR</span>
+                </button>
+                <button class="btn-mode-pill" data-mode="thermal" id="btn-mode-thermal" title="Thermal Heatmap: Bearing & Motor friction temperature">
+                  <i class="fa-solid fa-fire-flame-curved"></i> <span>Thermal Heatmap</span>
+                </button>
+                <button class="btn-mode-pill" data-mode="stress" id="btn-mode-stress" title="Mechanical Stress: Harness, Gear, & Tension wear load">
+                  <i class="fa-solid fa-gauge-high"></i> <span>Stress & Wear</span>
+                </button>
+                <button class="btn-mode-pill" data-mode="wireframe" id="btn-mode-wireframe" title="X-Ray Wireframe: Internal drive shafts and mechanics">
+                  <i class="fa-solid fa-network-wired"></i> <span>X-Ray Wireframe</span>
+                </button>
+                <button class="btn-mode-pill" data-mode="exploded" id="btn-mode-exploded" title="Exploded View: Sub-assembly inspection">
+                  <i class="fa-solid fa-arrows-split-up-and-left"></i> <span>Exploded View</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- Context Selectors Bar -->
+            <div class="flex-between flex-wrap gap-3 mt-3 pt-2" style="border-top: 1px solid var(--border-color);">
+              <div class="flex-center gap-3 flex-wrap">
+                <div class="flex-center gap-2">
+                  <label class="text-xs text-muted font-bold"><i class="fa-solid fa-industry text-cyan"></i> Machine Target:</label>
+                  <select id="dt-machine-selector" class="form-control form-control-sm" style="width: 155px; background: rgba(0,0,0,0.4);">
+                    <option value="M01">M01 (Air-Jet)</option>
+                    <option value="M02" selected>M02 (Rapier - High Risk)</option>
+                    <option value="M03">M03 (Rapier)</option>
+                    <option value="M04">M04 (Air-Jet)</option>
+                    <option value="M05">M05 (Projectile)</option>
+                    <option value="M06">M06 (Water-Jet)</option>
+                    <option value="M07">M07 (Rapier)</option>
+                    <option value="M08">M08 (Air-Jet - Optimal)</option>
+                    <option value="M09">M09 (Air-Jet)</option>
+                    <option value="M10">M10 (Rapier)</option>
+                  </select>
+                </div>
+
+                <div class="flex-center gap-2">
+                  <label class="text-xs text-muted font-bold"><i class="fa-solid fa-layer-group text-purple"></i> Fabric Weave:</label>
+                  <select id="dt-fabric-selector" class="form-control form-control-sm" style="width: 145px; background: rgba(0,0,0,0.4);">
+                    <option value="Silk" selected>Silk (Gold Satin)</option>
+                    <option value="Cotton">Cotton (Natural White)</option>
+                    <option value="Wool">Wool (Charcoal Twill)</option>
+                    <option value="Polyester">Polyester (Cyan Poly)</option>
+                    <option value="Linen">Linen (Rustic Beige)</option>
+                    <option value="Viscose">Viscose (Emerald Rayon)</option>
+                    <option value="Nylon">Nylon (Navy Ripstop)</option>
+                  </select>
+                </div>
+
+                <div class="flex-center gap-2">
+                  <span class="text-xs text-muted font-bold">Loom Cycle Speed:</span>
+                  <span class="badge badge-cyan font-bold" id="dt-hud-rpm-badge" style="font-size: 0.85rem;">850 RPM</span>
+                </div>
+              </div>
+
+              <!-- Exploded Slider (Visible in exploded mode) -->
+              <div id="dt-exploded-control-group" class="flex-center gap-2 hidden">
+                <label class="text-xs text-warning font-bold"><i class="fa-solid fa-arrows-split-up-and-left"></i> Explosion Distance:</label>
+                <input type="range" id="dt-slider-explosion" min="0" max="100" value="70" style="width: 120px;" class="sim-range">
+                <span class="text-xs font-bold text-warning" id="dt-lbl-explosion">70%</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- MAIN 3D WORKSPACE GRID -->
+          <div class="dt-workspace-grid">
+            
+            <!-- LEFT: 3D VIEWPORT -->
+            <div class="dt-viewport-card">
+              <div class="three-canvas-container" id="three-viewport">
+                <!-- THREE.JS CANVAS INJECTED HERE -->
+
+                <!-- FLOATING TOP-LEFT TELEMETRY HUD -->
+                <div class="dt-hud-overlay dt-hud-top-left">
+                  <div class="dt-hud-stat">
+                    <span class="dt-hud-label">MACHINE UNIT</span>
+                    <span class="dt-hud-value font-bold text-cyan" id="dt-hud-machine-id">M02 - Rapier Loom</span>
+                  </div>
+                  <div class="dt-hud-stat">
+                    <span class="dt-hud-label">OPERATING FREQ</span>
+                    <span class="dt-hud-value" id="dt-hud-picks-rate">850 picks/min (14.2 Hz)</span>
+                  </div>
+                  <div class="dt-hud-stat">
+                    <span class="dt-hud-label">SIMULATION FPS</span>
+                    <span class="dt-hud-value text-green" id="dt-hud-fps">60 FPS</span>
+                  </div>
+                </div>
+
+                <!-- FLOATING TOP-RIGHT STACK LIGHT HUD -->
+                <div class="dt-hud-overlay dt-hud-top-right">
+                  <div class="flex-center gap-2">
+                    <div class="dt-stack-beacon">
+                      <div class="beacon-light red" id="dt-beacon-red"></div>
+                      <div class="beacon-light amber" id="dt-beacon-amber"></div>
+                      <div class="beacon-light green active" id="dt-beacon-green"></div>
+                    </div>
+                    <div>
+                      <span class="dt-hud-label">LOOM HEALTH STATUS</span>
+                      <div class="font-bold text-xs" id="dt-hud-status-text" style="color: var(--risk-warning);">ELEVATED BEARING WEAR</div>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- FLOATING BOTTOM CAMERA PRESETS BAR -->
+                <div class="dt-hud-overlay dt-hud-bottom-center">
+                  <div class="dt-camera-pillbar">
+                    <button class="btn-cam-preset active" data-cam="overview" id="btn-cam-overview" title="Isometric Loom Overview">
+                      <i class="fa-solid fa-arrows-to-eye"></i> <span>Overview</span>
+                    </button>
+                    <button class="btn-cam-preset" data-cam="weaving" id="btn-cam-weaving" title="Zoom to Harness & Reed Weaving Zone">
+                      <i class="fa-solid fa-crosshairs"></i> <span>Weaving Shed</span>
+                    </button>
+                    <button class="btn-cam-preset" data-cam="motor" id="btn-cam-motor" title="Zoom to Main Drive Motor & Pulleys">
+                      <i class="fa-solid fa-bolt"></i> <span>Drive Motor</span>
+                    </button>
+                    <button class="btn-cam-preset" data-cam="rollers" id="btn-cam-rollers" title="Zoom to Warp Beam & Cloth Take-Up">
+                      <i class="fa-solid fa-scroll"></i> <span>Yarn Rollers</span>
+                    </button>
+                    <button class="btn-cam-preset" data-cam="top" id="btn-cam-top" title="Top-Down Factory Floor View">
+                      <i class="fa-solid fa-compass"></i> <span>Top-Down</span>
+                    </button>
+                    <button class="btn-cam-preset" data-cam="reset" id="btn-cam-reset" title="Reset Camera Orientation">
+                      <i class="fa-solid fa-rotate-left"></i> <span>Reset</span>
+                    </button>
+                  </div>
+                </div>
+
+                <!-- FLOATING BOTTOM-LEFT HINT -->
+                <div class="dt-hud-overlay dt-hud-bottom-left">
+                  <span class="text-xs text-muted"><i class="fa-solid fa-hand-pointer"></i> <strong>Click any 3D part</strong> to inspect | Drag to orbit | Scroll to zoom</span>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- RIGHT: CONTROLS & PART INSPECTOR -->
+            <div class="dt-sidebar-panels">
+              
+              <!-- CARD 1: KINEMATICS & SIMULATOR CONTROLS -->
+              <div class="card card-glass p-3 mb-3">
+                <div class="flex-between mb-2">
+                  <h4 class="font-bold" style="font-size: 0.95rem;"><i class="fa-solid fa-sliders text-cyan"></i> Real-Time Kinematics & Motion</h4>
+                  <button class="btn btn-xs btn-outline-cyan" id="dt-btn-toggle-motion">
+                    <i class="fa-solid fa-pause" id="dt-icon-playpause"></i> <span id="dt-lbl-playpause">Pause</span>
+                  </button>
+                </div>
+
+                <div class="mb-3">
+                  <div class="flex-between text-xs mb-1">
+                    <span class="text-muted">Loom Operating Speed:</span>
+                    <span class="font-bold text-cyan" id="dt-lbl-speed-slider">850 RPM</span>
+                  </div>
+                  <input type="range" id="dt-slider-speed" min="400" max="1200" step="10" value="850" class="sim-range">
+                  <div class="flex-between text-xs text-muted mt-1">
+                    <span>400 RPM (Slow)</span>
+                    <span>800 RPM (Standard)</span>
+                    <span>1200 RPM (Max)</span>
+                  </div>
+                </div>
+
+                <div class="flex-column gap-2 pt-2" style="border-top: 1px solid var(--border-color);">
+                  <label class="dt-toggle-label">
+                    <input type="checkbox" id="dt-toggle-vibration" checked>
+                    <span class="text-xs">Mechanical Vibration Jitter</span>
+                  </label>
+                  <label class="dt-toggle-label">
+                    <input type="checkbox" id="dt-toggle-particles" checked>
+                    <span class="text-xs">Waste Lint & Defect Particle Stream</span>
+                  </label>
+                </div>
+              </div>
+
+              <!-- CARD 2: INTERACTIVE 3D PART INSPECTOR -->
+              <div class="card card-glass p-3 mb-3" id="dt-part-inspector-card">
+                <div class="flex-between mb-2">
+                  <h4 class="font-bold" style="font-size: 0.95rem;"><i class="fa-solid fa-microchip text-yellow"></i> 3D Component Inspector</h4>
+                  <span class="badge badge-subtle" id="dt-part-category-badge">Drive Unit</span>
+                </div>
+                
+                <div class="dt-part-hero-box p-2 mb-2">
+                  <div class="font-bold text-cyan" id="dt-part-name" style="font-size: 1rem;">Main AC Drive Motor & Gearbox</div>
+                  <p class="text-xs text-muted mt-1" id="dt-part-desc">Primary 7.5 kW synchronous induction motor driving main crankshaft, sley rockshaft, and harness shedding motion.</p>
+                </div>
+
+                <div class="grid-2-col gap-2 mb-2">
+                  <div class="dt-metric-box">
+                    <span class="dt-m-label">OPERATING TEMP</span>
+                    <span class="dt-m-val text-warning font-bold" id="dt-part-temp">42.8°C</span>
+                    <div class="dt-m-track"><div class="dt-m-fill" id="dt-part-temp-fill" style="width: 65%; background: var(--risk-warning);"></div></div>
+                  </div>
+                  <div class="dt-metric-box">
+                    <span class="dt-m-label">MECHANICAL WEAR</span>
+                    <span class="dt-m-val text-danger font-bold" id="dt-part-wear">74%</span>
+                    <div class="dt-m-track"><div class="dt-m-fill" id="dt-part-wear-fill" style="width: 74%; background: var(--risk-danger);"></div></div>
+                  </div>
+                  <div class="dt-metric-box">
+                    <span class="dt-m-label">VIBRATION RMS</span>
+                    <span class="dt-m-val text-cyan font-bold" id="dt-part-vib">3.8 mm/s</span>
+                  </div>
+                  <div class="dt-metric-box">
+                    <span class="dt-m-label">BEARING LUBRICANT</span>
+                    <span class="dt-m-val text-normal font-bold" id="dt-part-lube">Degraded</span>
+                  </div>
+                </div>
+
+                <div class="p-2" style="background: rgba(0,0,0,0.3); border-radius: var(--radius-sm);">
+                  <span class="text-xs text-muted"><strong>Prescriptive Recommendation:</strong></span>
+                  <p class="text-xs mt-1 text-warning" id="dt-part-rec">Service rotor bearings and lubricate drive gears within 4 operating days to avoid heat expansion waste.</p>
+                </div>
+              </div>
+
+              <!-- CARD 3: MACHINE PROFILE & ROOT-CAUSE JUMP -->
+              <div class="card card-glass p-3">
+                <div class="flex-between mb-2">
+                  <h4 class="font-bold text-xs text-muted"><i class="fa-solid fa-chart-line text-purple"></i> MACHINE FLEET METRICS</h4>
+                  <span class="badge badge-danger" id="dt-mach-risk-badge">HIGH RISK (6.5% Waste)</span>
+                </div>
+
+                <div class="text-xs mb-2">
+                  <div class="flex-between py-1" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span class="text-muted">Machine Age:</span>
+                    <span class="font-bold" id="dt-mach-age">6.2 Years</span>
+                  </div>
+                  <div class="flex-between py-1" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span class="text-muted">Days Since Last Calibration:</span>
+                    <span class="font-bold text-warning" id="dt-mach-maint">78 Days (Overdue)</span>
+                  </div>
+                  <div class="flex-between py-1" style="border-bottom: 1px solid rgba(255,255,255,0.05);">
+                    <span class="text-muted">Dominant Failure Mode:</span>
+                    <span class="font-bold text-danger" id="dt-mach-failure">Mechanical Wear & Friction</span>
+                  </div>
+                </div>
+
+                <button class="btn btn-primary btn-block btn-sm btn-report-glow mt-2" id="btn-dt-goto-rca">
+                  <i class="fa-solid fa-brain-circuit"></i> Diagnose Root-Cause for <span id="dt-btn-mach-id">M02</span>
+                </button>
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB 3: MACHINE-WISE ANALYSIS -->
+        <!-- ============================================================ -->
+        <section id="tab-machines" class="tab-pane">
+          
+          <!-- Machine Key Insights -->
+          <div class="grid-3-col mb-4">
+            <div class="card card-glass">
+              <div class="card-header">
+                <h3 class="card-title">Highest Waste Machine</h3>
+              </div>
+              <div class="card-body" id="mach-tab-highest">
+                <h3 class="text-danger">M02</h3>
+                <p class="text-sm text-muted">Avg Waste: 6.5% | Age: 6.2 yrs | Overdue</p>
+              </div>
+            </div>
+
+            <div class="card card-glass">
+              <div class="card-header">
+                <h3 class="card-title">Lowest Waste Machine</h3>
+              </div>
+              <div class="card-body" id="mach-tab-lowest">
+                <h3 class="text-normal">M08</h3>
+                <p class="text-sm text-muted">Avg Waste: 3.2% | Age: 1.5 yrs | Optimal</p>
+              </div>
+            </div>
+
+            <div class="card card-glass">
+              <div class="card-header">
+                <h3 class="card-title">Machine Age Impact</h3>
+              </div>
+              <div class="card-body" id="mach-tab-corr">
+                <h3 class="text-purple" id="mach-corr-val">+0.82 Correlation</h3>
+                <p class="text-sm text-muted">Older machines exhibit elevated baseline waste variance.</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- Scatter: Machine Age vs Waste % -->
+          <div class="card card-glass mb-4">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Relationship: Machine Age vs Average Waste %</h3>
+                <p class="card-subtitle">Visualizing machine wear and degradation across the machine fleet</p>
+              </div>
+            </div>
+            <div class="card-body chart-container" style="height: 320px;">
+              <canvas id="chart-age-vs-waste"></canvas>
+            </div>
+          </div>
+
+          <!-- Machine Roster Table -->
+          <div class="card card-glass">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Machine Fleet Status & Maintenance Matrix</h3>
+                <p class="card-subtitle">Comprehensive performance, age, and maintenance tracking per Machine ID</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table" id="machine-fleet-table">
+                <thead>
+                  <tr>
+                    <th>Machine ID</th>
+                    <th>Age (Yrs)</th>
+                    <th>Batches Run</th>
+                    <th>Avg Waste %</th>
+                    <th>Min / Max Waste</th>
+                    <th>Abnormal Batches</th>
+                    <th>Abnormal Rate</th>
+                    <th>Avg Speed (rpm)</th>
+                    <th>Days Since Maint.</th>
+                    <th>Maintenance Status</th>
+                  </tr>
+                </thead>
+                <tbody id="machine-fleet-tbody">
+                  <tr><td colspan="10" class="text-center py-4">Loading machine matrix...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB 4: FABRIC & SHIFT ANALYTICS -->
+        <!-- ============================================================ -->
+        <section id="tab-fabrics-shifts" class="tab-pane">
+          
+          <div class="grid-2-col mb-4">
+            <!-- Fabric Waste Chart -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Fabric-Wise Waste Percentage</h3>
+                  <p class="card-subtitle">Average waste % and risk sensitivity across fabric types</p>
+                </div>
+              </div>
+              <div class="card-body chart-container" style="height: 300px;">
+                <canvas id="chart-fabric-waste"></canvas>
+              </div>
+            </div>
+
+            <!-- Shift Breakdown Chart -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title">Shift-Wise Waste & Speed Patterns</h3>
+                  <p class="card-subtitle">Performance comparison across Morning, Afternoon, and Night shifts</p>
+                </div>
+              </div>
+              <div class="card-body chart-container" style="height: 300px;">
+                <canvas id="chart-shift-waste"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Fabric Summary Table -->
+          <div class="card card-glass mb-4">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title">Fabric Characteristics & High-Risk Profiles</h3>
+                <p class="card-subtitle">Production quantity versus waste metrics and specialized handling requirements</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Fabric Type</th>
+                    <th>Batch Count</th>
+                    <th>Avg Waste %</th>
+                    <th>Total Prod (kg)</th>
+                    <th>Total Waste (kg)</th>
+                    <th>Abnormal Batches</th>
+                    <th>Abnormal Rate</th>
+                    <th>Avg Speed</th>
+                    <th>Risk Profile</th>
+                  </tr>
+                </thead>
+                <tbody id="fabric-summary-tbody">
+                  <tr><td colspan="9" class="text-center py-4">Loading fabric analytics...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB 5: MAINTENANCE & OPERATOR MATRIX -->
+        <!-- ============================================================ -->
+        <section id="tab-operator-maintenance" class="tab-pane">
+          
+          <!-- Maintenance Health Matrix -->
+          <div class="card card-glass mb-4">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title"><i class="fa-solid fa-wrench text-yellow"></i> Machine Maintenance Degradation Curve</h3>
+                <p class="card-subtitle">Waste percentage progression as days since maintenance increase</p>
+              </div>
+            </div>
+            <div class="card-body chart-container" style="height: 300px;">
+              <canvas id="chart-maint-degradation"></canvas>
+            </div>
+          </div>
+
+          <!-- Overdue Maintenance Alert Table -->
+          <div class="card card-glass mb-4 border-warning">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title text-warning"><i class="fa-solid fa-clock-rotate-left"></i> Maintenance Action Matrix</h3>
+                <p class="card-subtitle">Machines approaching or exceeding configured maintenance interval limit</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Machine ID</th>
+                    <th>Days Since Maint.</th>
+                    <th>Status</th>
+                    <th>Overdue / Due In</th>
+                    <th>Machine Age</th>
+                    <th>Avg Waste %</th>
+                    <th>Action Required</th>
+                  </tr>
+                </thead>
+                <tbody id="maintenance-matrix-tbody">
+                  <tr><td colspan="7" class="text-center py-4">Loading maintenance status...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Operator Constructive Condition Analysis -->
+          <div class="card card-glass">
+            <div class="card-header">
+              <div>
+                <h3 class="card-title"><i class="fa-solid fa-users text-cyan"></i> Operator Performance & Working Condition Analysis</h3>
+                <p class="card-subtitle">Objective analytics focused on production conditions and machine pairings</p>
+              </div>
+            </div>
+            <div class="table-responsive">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Operator</th>
+                    <th>Batches Handled</th>
+                    <th>Avg Waste %</th>
+                    <th>Avg Speed</th>
+                    <th>Abnormal Batches</th>
+                    <th>Abnormal Rate</th>
+                    <th>Machines Assigned</th>
+                  </tr>
+                </thead>
+                <tbody id="operator-summary-tbody">
+                  <tr><td colspan="7" class="text-center py-4">Loading operator analytics...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB 6: BATCH DATA EXPLORER -->
+        <!-- ============================================================ -->
+        <section id="tab-batches" class="tab-pane">
+          
+          <div class="card card-glass">
+            <div class="card-header filter-header">
+              <div>
+                <h3 class="card-title">Production Batch Records</h3>
+                <p class="card-subtitle" id="explorer-count-label">Showing 0 matching production batches</p>
+              </div>
+              <div class="filter-actions">
+                <button class="btn btn-sm btn-secondary" id="btn-export-csv">
+                  <i class="fa-solid fa-download"></i>
+                  <span>Export CSV</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- FILTER CONTROLS TOOLBAR -->
+            <div class="filter-bar">
+              <div class="search-input-box">
+                <i class="fa-solid fa-magnifying-glass search-icon"></i>
+                <input type="text" id="filter-search" class="form-control" placeholder="Search Batch ID, Machine, Fabric...">
+              </div>
+
+              <select id="filter-machine" class="form-control select-filter">
+                <option value="ALL">All Machines</option>
+              </select>
+
+              <select id="filter-fabric" class="form-control select-filter">
+                <option value="ALL">All Fabrics</option>
+              </select>
+
+              <select id="filter-shift" class="form-control select-filter">
+                <option value="ALL">All Shifts</option>
+                <option value="Morning">Morning</option>
+                <option value="Afternoon">Afternoon</option>
+                <option value="Night">Night</option>
+              </select>
+
+              <select id="filter-risk" class="form-control select-filter">
+                <option value="ALL">All Risk Levels</option>
+                <option value="NORMAL">Normal</option>
+                <option value="WARNING">Warning</option>
+                <option value="HIGH RISK">High Risk</option>
+              </select>
+
+              <button class="btn btn-sm btn-secondary" id="btn-clear-filters">Clear Filters</button>
+            </div>
+
+            <!-- BATCH DATA TABLE -->
+            <div class="table-responsive">
+              <table class="data-table" id="batches-main-table">
+                <thead>
+                  <tr>
+                    <th>Batch ID</th>
+                    <th>Machine</th>
+                    <th>Fabric</th>
+                    <th>Shift</th>
+                    <th>Operator</th>
+                    <th>Total Prod</th>
+                    <th>Waste Qty</th>
+                    <th>Waste %</th>
+                    <th>Risk Classification</th>
+                    <th>Score</th>
+                    <th>Explainability Reasons</th>
+                    <th>Inspection</th>
+                  </tr>
+                </thead>
+                <tbody id="batches-table-tbody">
+                  <tr><td colspan="12" class="text-center py-4">Loading batches...</td></tr>
+                </tbody>
+              </table>
+            </div>
+
+            <!-- PAGINATION -->
+            <div class="pagination-bar">
+              <span class="page-info" id="pagination-info">Showing 1-50 of 1000</span>
+              <div class="page-buttons">
+                <button class="btn btn-sm btn-secondary" id="btn-page-prev" disabled>Previous</button>
+                <span class="current-page-badge" id="current-page-num">1</span>
+                <button class="btn btn-sm btn-secondary" id="btn-page-next">Next</button>
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+
+        <!-- ============================================================ -->
+        <!-- TAB 7: DATA INGESTION & SYSTEM SETTINGS -->
+        <!-- ============================================================ -->
+        <section id="tab-ingestion-settings" class="tab-pane">
+          
+          <div class="grid-2-col">
+            
+            <!-- CSV / EXCEL FILE UPLOADER -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title"><i class="fa-solid fa-file-arrow-up text-cyan"></i> Upload Production Data</h3>
+                  <p class="card-subtitle">Import CSV or Excel (.xlsx) files for automated validation and risk scoring</p>
+                </div>
+              </div>
+              <div class="card-body">
+                
+                <div class="drop-zone" id="file-drop-zone">
+                  <i class="fa-solid fa-cloud-arrow-up drop-icon"></i>
+                  <h4>Drag & Drop CSV or Excel file here</h4>
+                  <p class="text-sm text-muted">or click to browse from computer</p>
+                  <input type="file" id="file-input" accept=".csv, .xlsx, .xls" style="display: none;">
+                  <button type="button" class="btn btn-secondary mt-3" id="btn-browse-file">Browse File</button>
+                </div>
+
+                <div id="upload-status-box" class="upload-status-box hidden mt-3">
+                  <div class="spinner-small" id="upload-spinner"></div>
+                  <span id="upload-status-text">Processing file...</span>
+                </div>
+
+                <!-- Upload Validation Report -->
+                <div id="upload-report-card" class="report-card hidden mt-3">
+                  <h5 class="report-title"><i class="fa-solid fa-clipboard-check text-green"></i> Ingestion Validation Summary</h5>
+                  <div class="report-grid">
+                    <div class="report-stat">
+                      <span class="stat-num" id="rep-total">0</span>
+                      <span class="stat-lbl">Total Batches</span>
+                    </div>
+                    <div class="report-stat">
+                      <span class="stat-num text-normal" id="rep-valid">0</span>
+                      <span class="stat-lbl">Valid Records</span>
+                    </div>
+                    <div class="report-stat">
+                      <span class="stat-num text-warning" id="rep-dup">0</span>
+                      <span class="stat-lbl">Duplicates</span>
+                    </div>
+                    <div class="report-stat">
+                      <span class="stat-num text-cyan" id="rep-imputed">0</span>
+                      <span class="stat-lbl">Missing Humidity</span>
+                    </div>
+                    <div class="report-stat">
+                      <span class="stat-num text-danger" id="rep-zero">0</span>
+                      <span class="stat-lbl">Zero Production</span>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="sample-csv-guide mt-4">
+                  <h5>Supported File Headers:</h5>
+                  <code>Batch ID, Machine ID, Fabric Type, Operator, Shift, Total Production Quantity, Production Speed, Waste Quantity, Machine Age, Last Maintenance Date, Humidity, Temperature</code>
+                </div>
+
+              </div>
+            </div>
+
+            <!-- SYSTEM CONFIGURATION & THRESHOLDS -->
+            <div class="card card-glass">
+              <div class="card-header">
+                <div>
+                  <h3 class="card-title"><i class="fa-solid fa-sliders text-yellow"></i> Configurable Risk Thresholds</h3>
+                  <p class="card-subtitle">Customize risk boundaries, maintenance cycles, and outlier sensitivities</p>
+                </div>
+              </div>
+              <div class="card-body">
+                <form id="settings-form">
+                  
+                  <div class="form-group">
+                    <label for="cfg-warn-thresh">Warning Risk Score Threshold (0–100)</label>
+                    <input type="number" id="cfg-warn-thresh" class="form-control" value="40" min="10" max="60" step="1">
+                    <small class="text-muted">Scores between this value and High Risk are classified as <strong>WARNING</strong> (Default: 40).</small>
+                  </div>
+
+                  <div class="form-group mt-3">
+                    <label for="cfg-high-thresh">High-Risk Score Threshold (0–100)</label>
+                    <input type="number" id="cfg-high-thresh" class="form-control" value="70" min="50" max="90" step="1">
+                    <small class="text-muted">Scores at or above this value are classified as <strong>HIGH RISK</strong> (Default: 70).</small>
+                  </div>
+
+                  <div class="form-group mt-3">
+                    <label for="cfg-maint-interval">Maintenance Overdue Interval (Days)</label>
+                    <input type="number" id="cfg-maint-interval" class="form-control" value="60" min="15" max="180" step="5">
+                    <small class="text-muted">Machines operating without maintenance beyond this limit trigger overdue risk penalties (Default: 60 days).</small>
+                  </div>
+
+                  <div class="form-group mt-3">
+                    <label for="cfg-dup-strategy">Duplicate Batch ID Resolution Strategy</label>
+                    <select id="cfg-dup-strategy" class="form-control">
+                      <option value="keep_latest">Keep / Overwrite with Latest Valid Record</option>
+                      <option value="reject">Reject & Ignore Duplicate Batch Records</option>
+                    </select>
+                  </div>
+
+                  <div class="form-actions mt-4">
+                    <button type="submit" class="btn btn-primary">Save System Settings</button>
+                  </div>
+                </form>
+
+                <div class="danger-zone mt-4 pt-4 border-top">
+                  <h5 class="text-danger"><i class="fa-solid fa-triangle-exclamation"></i> Database Re-Seeding</h5>
+                  <p class="text-sm text-muted">Clear all current records and restore 1,000+ realistic synthetic batches with standard edge cases.</p>
+                  <button class="btn btn-outline-danger mt-2" id="btn-reset-sample-data">
+                    <i class="fa-solid fa-arrows-rotate"></i>
+                    <span>Reset & Re-Seed Sample Database</span>
+                  </button>
+                </div>
+
+              </div>
+            </div>
+
+          </div>
+
+        </section>
+
+      </div>
+    </main>
+
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- BATCH INSPECTION MODAL -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay hidden" id="batch-modal">
+    <div class="modal-card">
+      <div class="modal-header">
+        <div>
+          <h3 class="modal-title" id="modal-batch-id">Batch Details</h3>
+          <span class="badge" id="modal-risk-badge">NORMAL</span>
+        </div>
+        <button class="btn-icon" id="btn-close-modal"><i class="fa-solid fa-xmark"></i></button>
+      </div>
+      <div class="modal-body" id="modal-body-content">
+        <!-- Injected via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- FINALIZED QUALITY & RISK AUDIT REPORT MODAL -->
+  <!-- ============================================================ -->
+  <div class="modal-overlay hidden" id="finalized-report-modal">
+    <div class="modal-card report-modal-card">
+      <div class="modal-header report-modal-header">
+        <div class="report-header-titles">
+          <div class="report-cert-icon">
+            <i class="fa-solid fa-stamp fa-xl"></i>
+          </div>
+          <div>
+            <h3 class="modal-title" id="rep-modal-title">Finalized Production Waste & Risk Audit Report</h3>
+            <span class="text-xs text-muted" id="rep-modal-subtitle">Official AI Quality Certification & Plant Audit Trace</span>
+          </div>
+        </div>
+        <div class="report-header-actions no-print">
+          <button class="btn btn-sm btn-primary" id="btn-print-report" title="Print or Save as PDF">
+            <i class="fa-solid fa-print"></i>
+            <span>Print / Save PDF</span>
+          </button>
+          <button class="btn btn-sm btn-secondary" id="btn-download-report-txt" title="Download Markdown Document">
+            <i class="fa-solid fa-file-arrow-down"></i>
+            <span>Export Text</span>
+          </button>
+          <button class="btn-icon" id="btn-close-report-modal"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+      </div>
+      <div class="modal-body report-modal-body" id="finalized-report-content">
+        <!-- Injected via app.js -->
+      </div>
+    </div>
+  </div>
+
+  <!-- TOAST NOTIFICATION CONTAINER -->
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- APP JAVASCRIPT -->
+  <script src="/static/app.js"></script>
+</body>
+</html>
