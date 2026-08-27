@@ -178,13 +178,46 @@ class TextileRiskMLEngine:
                 "is_abnormal": True,
                 "is_new_machine": False,
                 "reasons": [
-                    "Invalid record: Total production quantity is zero or negative.",
+                    "Invalid batch: production quantity is zero. Waste percentage cannot be calculated.",
                     "Waste percentage cannot be computed due to division by zero."
                 ],
                 "actions": [
                     "Verify raw production meter and enter valid total production quantity.",
                     "Exclude batch from statistical KPI aggregates until corrected."
                 ],
+                "reason_cards": [
+                    {
+                        "id": "zero_production",
+                        "title": "Invalid Production Quantity (Zero Production)",
+                        "severity": "CRITICAL",
+                        "badge_color": "danger",
+                        "icon": "fa-triangle-exclamation",
+                        "observed": "0 kg Production",
+                        "benchmark": "> 0 kg Valid Production",
+                        "impact": "Division by zero prevents calculation of waste percentage and risk classification.",
+                        "evidence_text": "Invalid batch: production quantity is zero. Waste percentage cannot be calculated."
+                    }
+                ],
+                "preventive_solutions": [
+                    {
+                        "reason_id": "zero_production",
+                        "title": "Verify Production Telemetry",
+                        "icon": "fa-clipboard-check",
+                        "solution": "Inspect meter sensor at Loom Bay and enter valid total production quantity before continuing.",
+                        "priority": "CRITICAL"
+                    }
+                ],
+                "recommended_action_plan": {
+                    "risk_level": "INVALID",
+                    "badge_class": "badge-danger",
+                    "summary": "Invalid batch: production quantity is zero. Waste percentage cannot be calculated.",
+                    "protocol": "Inspect → Adjust → Maintain → Monitor",
+                    "steps": [
+                        "Verify raw production meter reading at loom controller.",
+                        "Input valid total production quantity greater than zero.",
+                        "Re-run prediction analysis after data correction."
+                    ]
+                },
                 "factor_contributions": {}
             }
 
@@ -362,6 +395,9 @@ class TextileRiskMLEngine:
             "is_new_machine": bool(is_new_machine),
             "reasons": list(reasons),
             "actions": list(actions),
+            "reason_cards": root_cause_diag.get("reason_cards", []),
+            "preventive_solutions": root_cause_diag.get("preventive_solutions", []),
+            "recommended_action_plan": root_cause_diag.get("recommended_action_plan", {}),
             "factor_contributions": {
                 "waste_deviation": float(round(waste_component, 1)),
                 "maintenance_health": float(round(maint_component, 1)),

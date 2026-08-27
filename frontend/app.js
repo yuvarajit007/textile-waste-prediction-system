@@ -176,6 +176,16 @@ function getDaysAgoDate(days) {
   return d.toISOString().split('T')[0];
 }
 
+function escapeHtml(str) {
+  if (str === null || str === undefined) return '';
+  return String(str)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#039;');
+}
+
 // ------------------------------------------------------------
 // INITIALIZATION
 // ------------------------------------------------------------
@@ -381,13 +391,61 @@ async function loadOverviewData(showLoading = true) {
       console.warn('Could not load overview RCA summary:', rcaErr);
     }
 
-    // Render Charts
+    // Render Charts and Tables
     renderRiskDonutChart(kpis.normal_count, kpis.warning_count, kpis.high_risk_count);
     loadMachineWasteChart();
+    loadWasteCausesPreventionTable();
     loadOverviewRecentBatches();
 
   } catch (err) {
     console.error('Error loading overview data:', err);
+  }
+}
+
+async function loadWasteCausesPreventionTable() {
+  const tbody = document.getElementById('waste-causes-tbody');
+  if (!tbody) return;
+
+  try {
+    const res = await fetch('/api/analytics/waste-causes-prevention');
+    if (!res.ok) throw new Error('Failed to fetch waste causes');
+    const data = await res.json();
+    const rows = data.summary || [];
+
+    if (rows.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-muted">All recorded production batches are within optimal operating tolerances.</td></tr>';
+      return;
+    }
+
+    tbody.innerHTML = rows.map(r => {
+      let riskBadgeClass = 'badge-normal';
+      if (r.risk_level === 'HIGH RISK') riskBadgeClass = 'badge-danger';
+      else if (r.risk_level === 'WARNING') riskBadgeClass = 'badge-warning';
+
+      return `
+        <tr>
+          <td class="font-bold">
+            <i class="fa-solid ${r.icon || 'fa-triangle-exclamation'} mr-2 text-cyan"></i>
+            ${escapeHtml(r.cause_name)}
+          </td>
+          <td><span class="badge badge-subtle text-xs">${escapeHtml(r.category)}</span></td>
+          <td class="text-right font-bold">${r.affected_batches.toLocaleString()}</td>
+          <td class="text-right font-bold ${r.avg_waste_pct > 6 ? 'text-danger' : (r.avg_waste_pct > 4 ? 'text-warning' : 'text-normal')}">${r.avg_waste_pct.toFixed(2)}%</td>
+          <td>
+            <div class="flex-center-y gap-1 text-sm text-muted">
+              <i class="fa-solid fa-arrow-right text-cyan text-xs"></i>
+              <span>${escapeHtml(r.preventive_action)}</span>
+            </div>
+          </td>
+          <td>
+            <span class="badge ${riskBadgeClass}">${escapeHtml(r.risk_level)}</span>
+          </td>
+        </tr>
+      `;
+    }).join('');
+  } catch (err) {
+    console.error('Error loading waste causes prevention table:', err);
+    tbody.innerHTML = '<tr><td colspan="6" class="text-center py-4 text-danger">Failed to load waste causes analytics.</td></tr>';
   }
 }
 
@@ -669,6 +727,7 @@ function renderPredictionResult(result) {
   const riskScore = result.risk_score || 0;
   const riskLevel = result.risk_level || 'NORMAL';
   const confidence = result.confidence_score || 95;
+  const batchId = result.batch_id || 'PREDICTED-BATCH';
 
   // Animate Circular Gauge
   const circle = document.getElementById('risk-gauge-circle');
@@ -688,12 +747,16 @@ function renderPredictionResult(result) {
     scoreNum.style.color = color;
   }
 
-  // Risk Badge
+  // Risk Badge & Batch Tag
   const badge = document.getElementById('res-risk-badge');
   const badgeText = document.getElementById('res-risk-text');
   if (badge && badgeText) {
     badge.className = `risk-badge-large badge-${riskLevel.toLowerCase().replace(' ', '-')}`;
     badgeText.textContent = riskLevel;
+  }
+  const batchTag = document.getElementById('res-batch-id-tag');
+  if (batchTag) {
+    batchTag.textContent = `Batch: ${batchId}`;
   }
 
   // Confidence
@@ -704,38 +767,129 @@ function renderPredictionResult(result) {
   }
 
   // Metrics
-  document.getElementById('res-waste-pct').textContent = `${result.waste_percentage?.toFixed(2)}%`;
-  document.getElementById('res-is-abnormal').textContent = result.is_abnormal ? 'Yes (Detected)' : 'No (Within Range)';
-  document.getElementById('res-is-abnormal').style.color = result.is_abnormal ? 'var(--risk-danger)' : 'var(--risk-normal)';
+  const wastePctEl = document.getElementById('res-waste-pct');
+  if (wastePctEl) {
+    wastePctEl.textContent = `${result.waste_percentage?.toFixed(2)}%`;
+    wastePctEl.className = `sub-val font-bold ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-normal')}`;
+  }
+  const abnormalEl = document.getElementById('res-is-abnormal');
+  if (abnormalEl) {
+    abnormalEl.textContent = result.is_abnormal ? 'Yes (Abnormal Flagged)' : 'No (Within Range)';
+    abnormalEl.style.color = result.is_abnormal ? 'var(--risk-danger)' : 'var(--risk-normal)';
+  }
 
-  // Factor Breakdown Progress Bars
+  // ----------------------------------------------------
+  // 1. REASON CARDS (WHY IS THIS BATCH AT RISK?)
+  // ----------------------------------------------------
+  const reasonCardsContainer = document.getElementById('res-reason-cards-container');
+  const reasonCards = result.reason_cards || (result.root_cause_analysis && result.root_cause_analysis.reason_cards) || [];
+  if (reasonCardsContainer) {
+    if (reasonCards.length > 0) {
+      reasonCardsContainer.innerHTML = reasonCards.map((rc, idx) => `
+        <div class="reason-card card-severity-${(rc.severity || 'warning').toLowerCase()}">
+          <div class="reason-card-header">
+            <div class="reason-title">
+              <i class="fa-solid ${rc.icon || 'fa-triangle-exclamation'}"></i>
+              <span>${escapeHtml(rc.title || `Reason ${idx + 1}`)}</span>
+            </div>
+            <span class="badge badge-${rc.badge_color || 'warning'}">${escapeHtml(rc.severity || 'WARNING')}</span>
+          </div>
+          <div class="observed-benchmark-grid">
+            <div class="stat-chip">
+              <span class="stat-chip-label">Observed Telemetry</span>
+              <div class="stat-chip-val text-${rc.badge_color || 'warning'}">${escapeHtml(rc.observed || 'N/A')}</div>
+            </div>
+            <div class="stat-chip">
+              <span class="stat-chip-label">Normal Benchmark</span>
+              <div class="stat-chip-val text-muted">${escapeHtml(rc.benchmark || 'Nominal Range')}</div>
+            </div>
+          </div>
+          <div class="reason-impact-box">
+            <strong>Impact:</strong> ${escapeHtml(rc.impact || rc.evidence_text || 'Potential material loss and defect escalation.')}
+          </div>
+        </div>
+      `).join('');
+    } else if (result.reasons && result.reasons.length > 0) {
+      reasonCardsContainer.innerHTML = result.reasons.map((r, i) => `
+        <div class="reason-card card-severity-nominal">
+          <div class="reason-card-header">
+            <div class="reason-title"><i class="fa-solid fa-circle-check text-normal"></i> <span>Reason ${i + 1}</span></div>
+            <span class="badge badge-normal">NOMINAL</span>
+          </div>
+          <p class="text-sm text-muted">${escapeHtml(r)}</p>
+        </div>
+      `).join('');
+    } else {
+      reasonCardsContainer.innerHTML = '<div class="empty-state-notice">All operational telemetry parameters are within validated baseline limits.</div>';
+    }
+  }
+
+  // ----------------------------------------------------
+  // 2. PREVENTIVE SOLUTIONS (HOW CAN THE WASTE BE PREVENTED?)
+  // ----------------------------------------------------
+  const solutionsContainer = document.getElementById('res-preventive-solutions-container');
+  const solutions = result.preventive_solutions || (result.root_cause_analysis && result.root_cause_analysis.preventive_solutions) || [];
+  if (solutionsContainer) {
+    if (solutions.length > 0) {
+      solutionsContainer.innerHTML = solutions.map((sol, idx) => `
+        <div class="solution-card">
+          <div class="solution-icon-box">
+            <i class="fa-solid ${sol.icon || 'fa-shield-halved'}"></i>
+          </div>
+          <div class="solution-card-body">
+            <div class="solution-title-row">
+              <h5 class="solution-title">${escapeHtml(sol.title || `Solution ${idx + 1}`)}</h5>
+              <span class="badge badge-subtle text-xs">${escapeHtml(sol.priority || 'MEDIUM')} PRIORITY</span>
+            </div>
+            <p class="solution-text">${escapeHtml(sol.solution)}</p>
+          </div>
+        </div>
+      `).join('');
+    } else if (result.actions && result.actions.length > 0) {
+      solutionsContainer.innerHTML = result.actions.map((act, i) => `
+        <div class="solution-card">
+          <div class="solution-icon-box"><i class="fa-solid fa-check text-cyan"></i></div>
+          <div class="solution-card-body">
+            <h5 class="solution-title">Standard Preventive Action ${i + 1}</h5>
+            <p class="solution-text">${escapeHtml(act)}</p>
+          </div>
+        </div>
+      `).join('');
+    } else {
+      solutionsContainer.innerHTML = '<div class="empty-state-notice">Maintain nominal operating standards and routine inspections.</div>';
+    }
+  }
+
+  // ----------------------------------------------------
+  // 3. RECOMMENDED ACTION PLAN (Inspect -> Adjust -> Maintain -> Monitor)
+  // ----------------------------------------------------
+  const actionPlan = result.recommended_action_plan || (result.root_cause_analysis && result.root_cause_analysis.recommended_action_plan) || {};
+  const summaryEl = document.getElementById('res-action-summary');
+  const stepsListEl = document.getElementById('res-action-steps-list');
+  if (summaryEl) {
+    summaryEl.textContent = actionPlan.summary || (riskLevel === 'HIGH RISK' ? 'Multiple factors indicate a high probability of abnormal waste. Immediate inspection is recommended before continuing production.' : (riskLevel === 'WARNING' ? 'The batch shows moderate risk factors. Review the highlighted conditions before continuing large-scale production.' : 'Production conditions are within the expected range. Continue monitoring waste percentage.'));
+  }
+  if (stepsListEl) {
+    const steps = actionPlan.steps || result.actions || [
+      'Continue production according to standard operational schedule.',
+      'Monitor machine performance and tension telemetry.',
+      'Maintain standard scheduled maintenance timeline.'
+    ];
+    stepsListEl.innerHTML = steps.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+  }
+
+  // ----------------------------------------------------
+  // 4. FACTOR CONTRIBUTIONS BARS
+  // ----------------------------------------------------
   const factors = result.factor_contributions || {};
   updateFactorBar('bar-factor-waste', 'factor-waste-val', factors.waste_deviation || 0);
   updateFactorBar('bar-factor-maint', 'factor-maint-val', factors.maintenance_health || 0);
   updateFactorBar('bar-factor-speed', 'factor-speed-val', factors.speed_stress || 0);
   updateFactorBar('bar-factor-env', 'factor-env-val', factors.environment_age || 0);
 
-  // Reasons List
-  const reasonsList = document.getElementById('res-reasons-list');
-  if (reasonsList) {
-    if (result.reasons && result.reasons.length > 0) {
-      reasonsList.innerHTML = result.reasons.map(r => `<li>${r}</li>`).join('');
-    } else {
-      reasonsList.innerHTML = '<li>All operating variables are nominal.</li>';
-    }
-  }
-
-  // Actions List
-  const actionsList = document.getElementById('res-actions-list');
-  if (actionsList) {
-    if (result.actions && result.actions.length > 0) {
-      actionsList.innerHTML = result.actions.map(a => `<li>${a}</li>`).join('');
-    } else {
-      actionsList.innerHTML = '<li>Maintain standard operating schedules.</li>';
-    }
-  }
-
-  // Root-Cause AI Primary Cause Callout
+  // ----------------------------------------------------
+  // 5. ROOT-CAUSE AI PRIMARY CAUSE CALLOUT
+  // ----------------------------------------------------
   const rcaCallout = document.getElementById('pred-rca-container');
   if (rcaCallout) {
     const rca = result.root_cause_analysis;
@@ -1256,35 +1410,98 @@ async function inspectBatch(batchId) {
     modalBadge.className = `badge badge-${b.risk_level?.toLowerCase().replace(' ', '-')}`;
     modalBadge.textContent = `${b.risk_level} (${b.risk_score?.toFixed(0)}/100)`;
 
+    // Fetch deep diagnostic for reason cards
+    let diag = null;
+    try {
+      const diagRes = await fetch('/api/root-cause/diagnose', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(b)
+      });
+      if (diagRes.ok) diag = await diagRes.json();
+    } catch (dErr) {
+      console.warn('Could not fetch deep diagnosis for modal:', dErr);
+    }
+
+    const reasonCards = (diag && diag.reason_cards) || [];
+    const solutions = (diag && diag.preventive_solutions) || [];
+    const actionPlan = (diag && diag.recommended_action_plan) || {};
+
     const modalBody = document.getElementById('modal-body-content');
     modalBody.innerHTML = `
       <div class="grid-2-col mb-3">
         <div>
-          <div class="sub-metric mb-2"><span class="sub-label">Machine ID:</span> <span class="sub-val">${b.machine_id} (Age: ${b.machine_age} yrs)</span></div>
-          <div class="sub-metric mb-2"><span class="sub-label">Fabric Type:</span> <span class="sub-val">${b.fabric_type}</span></div>
-          <div class="sub-metric mb-2"><span class="sub-label">Shift & Operator:</span> <span class="sub-val">${b.shift} | ${b.operator}</span></div>
+          <div class="sub-metric mb-2"><span class="sub-label">Machine ID:</span> <span class="sub-val">${escapeHtml(b.machine_id)} (Age: ${b.machine_age} yrs)</span></div>
+          <div class="sub-metric mb-2"><span class="sub-label">Fabric Type:</span> <span class="sub-val">${escapeHtml(b.fabric_type)}</span></div>
+          <div class="sub-metric mb-2"><span class="sub-label">Shift & Operator:</span> <span class="sub-val">${escapeHtml(b.shift)} | ${escapeHtml(b.operator)}</span></div>
           <div class="sub-metric mb-2"><span class="sub-label">Production Speed:</span> <span class="sub-val">${b.production_speed} rpm</span></div>
         </div>
         <div>
           <div class="sub-metric mb-2"><span class="sub-label">Total Production:</span> <span class="sub-val font-bold">${b.total_production?.toLocaleString()} kg</span></div>
           <div class="sub-metric mb-2"><span class="sub-label">Waste Quantity:</span> <span class="sub-val font-bold">${b.waste_quantity?.toFixed(1)} kg</span></div>
           <div class="sub-metric mb-2"><span class="sub-label">Waste Percentage:</span> <span class="sub-val text-cyan font-bold" style="font-size: 1.1rem;">${b.waste_percentage?.toFixed(2)}%</span></div>
-          <div class="sub-metric mb-2"><span class="sub-label">Days Since Maintenance:</span> <span class="sub-val">${b.maintenance_age_days} days (${b.last_maintenance_date || 'N/A'})</span></div>
+          <div class="sub-metric mb-2"><span class="sub-label">Days Since Maintenance:</span> <span class="sub-val">${b.maintenance_age_days} days (${escapeHtml(b.last_maintenance_date || 'N/A')})</span></div>
         </div>
       </div>
 
-      <div class="card p-3 mb-3" style="background: rgba(0,0,0,0.2);">
-        <h5 class="section-heading mb-2"><i class="fa-solid fa-circle-question text-purple"></i> Explainability Reasons</h5>
-        <ul class="reasons-list">
-          ${(b.reasons || []).map(r => `<li>${r}</li>`).join('')}
-        </ul>
+      <!-- WHY IS THIS BATCH AT RISK? -->
+      <div class="card p-3 mb-3" style="background: rgba(0,0,0,0.25); border-left: 3px solid var(--risk-danger);">
+        <h5 class="section-heading mb-2 text-danger"><i class="fa-solid fa-circle-question"></i> WHY IS THIS BATCH AT RISK?</h5>
+        <div class="reason-cards-grid">
+          ${reasonCards.length > 0 ? reasonCards.map((rc, idx) => `
+            <div class="reason-card card-severity-${(rc.severity || 'warning').toLowerCase()}" style="padding: 0.75rem;">
+              <div class="reason-card-header">
+                <div class="reason-title" style="font-size: 0.85rem;">
+                  <i class="fa-solid ${rc.icon || 'fa-triangle-exclamation'}"></i>
+                  <span>${escapeHtml(rc.title || `Reason ${idx + 1}`)}</span>
+                </div>
+                <span class="badge badge-${rc.badge_color || 'warning'} text-xs">${escapeHtml(rc.severity || 'WARNING')}</span>
+              </div>
+              <div class="observed-benchmark-grid" style="margin-bottom: 0.4rem;">
+                <div class="stat-chip" style="padding: 0.35rem 0.5rem;">
+                  <span class="stat-chip-label">Observed</span>
+                  <div class="stat-chip-val text-xs text-${rc.badge_color || 'warning'}">${escapeHtml(rc.observed || 'N/A')}</div>
+                </div>
+                <div class="stat-chip" style="padding: 0.35rem 0.5rem;">
+                  <span class="stat-chip-label">Benchmark</span>
+                  <div class="stat-chip-val text-xs text-muted">${escapeHtml(rc.benchmark || 'Nominal')}</div>
+                </div>
+              </div>
+              <div class="reason-impact-box" style="padding: 0.4rem 0.6rem; font-size: 0.75rem;">
+                <strong>Impact:</strong> ${escapeHtml(rc.impact || rc.evidence_text)}
+              </div>
+            </div>
+          `).join('') : `
+            <ul class="reasons-list">
+              ${(b.reasons || ['Nominal parameters']).map(r => `<li>${escapeHtml(r)}</li>`).join('')}
+            </ul>
+          `}
+        </div>
       </div>
 
-      <div class="card p-3 mb-3" style="background: rgba(0,0,0,0.2);">
-        <h5 class="section-heading mb-2"><i class="fa-solid fa-list-check text-green"></i> Recommended Mitigations</h5>
-        <ul class="actions-list">
-          ${(b.actions || []).map(a => `<li>${a}</li>`).join('')}
-        </ul>
+      <!-- HOW CAN THE WASTE BE PREVENTED? -->
+      <div class="card p-3 mb-3" style="background: rgba(0,0,0,0.25); border-left: 3px solid var(--cyan);">
+        <h5 class="section-heading mb-2 text-cyan"><i class="fa-solid fa-shield-halved"></i> HOW CAN THE WASTE BE PREVENTED?</h5>
+        <div class="solution-cards-grid">
+          ${solutions.length > 0 ? solutions.map((sol, idx) => `
+            <div class="solution-card" style="padding: 0.65rem 0.85rem;">
+              <div class="solution-icon-box" style="width: 28px; height: 28px; min-width: 28px; font-size: 0.85rem;">
+                <i class="fa-solid ${sol.icon || 'fa-shield-halved'}"></i>
+              </div>
+              <div class="solution-card-body">
+                <div class="solution-title-row">
+                  <h6 class="solution-title" style="font-size: 0.82rem;">${escapeHtml(sol.title || `Solution ${idx + 1}`)}</h6>
+                  <span class="badge badge-subtle text-xs">${escapeHtml(sol.priority || 'MEDIUM')}</span>
+                </div>
+                <p class="solution-text" style="font-size: 0.78rem;">${escapeHtml(sol.solution)}</p>
+              </div>
+            </div>
+          `).join('') : `
+            <ul class="actions-list">
+              ${(b.actions || ['Maintain standard operating parameters']).map(a => `<li>${escapeHtml(a)}</li>`).join('')}
+            </ul>
+          `}
+        </div>
       </div>
 
       <div class="mt-3 flex-center gap-2">
@@ -1598,6 +1815,9 @@ function openBatchFinalizedReport(batchData) {
       waste_variance_from_machine_baseline_pct: (waste_pct - 4.2).toFixed(2),
       speed_variance_from_safe_fabric_rpm: ((parseFloat(batchData.production_speed) || 800) - 800).toFixed(1)
     },
+    reason_cards: batchData.reason_cards || (batchData.root_cause_analysis && batchData.root_cause_analysis.reason_cards) || [],
+    preventive_solutions: batchData.preventive_solutions || (batchData.root_cause_analysis && batchData.root_cause_analysis.preventive_solutions) || [],
+    recommended_action_plan: batchData.recommended_action_plan || (batchData.root_cause_analysis && batchData.root_cause_analysis.recommended_action_plan) || {},
     explainability_reasons: batchData.reasons || ['Operating conditions evaluated by AI.'],
     actionable_recommendations: batchData.actions || ['Maintain nominal speed and monitoring.'],
     audit_signoff: {
@@ -1620,6 +1840,9 @@ function renderBatchReportHTML(report) {
   const b = r.batch_telemetry;
   const a = r.risk_assessment;
   const comp = r.baseline_comparison;
+  const reasonCards = r.reason_cards || [];
+  const solutions = r.preventive_solutions || [];
+  const actionPlan = r.recommended_action_plan || {};
 
   let bannerClass = 'banner-normal';
   let badgeClass = 'text-green';
@@ -1697,35 +1920,91 @@ function renderBatchReportHTML(report) {
         </table>
       </div>
 
-      <!-- EXPLAINABILITY AUDIT TRACE -->
+      <!-- EXPLAINABILITY REASONS (WHY IS THIS BATCH AT RISK?) -->
       <div>
-        <div class="report-section-title"><i class="fa-solid fa-magnifying-glass-chart text-purple"></i> Explainable Risk Trace & Baseline Variance Audit</div>
-        <ul class="reasons-list">
-          ${r.explainability_reasons.map(reason => `<li><strong>Finding:</strong> ${reason}</li>`).join('')}
-        </ul>
+        <div class="report-section-title"><i class="fa-solid fa-magnifying-glass-chart text-purple"></i> Why is this Batch at Risk? (Evidence-Based Reasons)</div>
+        ${reasonCards.length > 0 ? `
+          <div class="reason-cards-grid" style="margin-bottom: 1rem;">
+            ${reasonCards.map(rc => `
+              <div class="reason-card card-severity-${(rc.severity || 'warning').toLowerCase()}">
+                <div class="reason-card-header">
+                  <div class="reason-title"><i class="fa-solid ${rc.icon || 'fa-triangle-exclamation'}"></i> <span>${escapeHtml(rc.title)}</span></div>
+                  <span class="badge badge-${rc.badge_color || 'warning'}">${escapeHtml(rc.severity || 'WARNING')}</span>
+                </div>
+                <div class="observed-benchmark-grid">
+                  <div class="stat-chip">
+                    <span class="stat-chip-label">Observed</span>
+                    <div class="stat-chip-val text-${rc.badge_color || 'warning'}">${escapeHtml(rc.observed)}</div>
+                  </div>
+                  <div class="stat-chip">
+                    <span class="stat-chip-label">Normal Benchmark</span>
+                    <div class="stat-chip-val text-muted">${escapeHtml(rc.benchmark)}</div>
+                  </div>
+                </div>
+                <div class="reason-impact-box">
+                  <strong>Impact:</strong> ${escapeHtml(rc.impact || rc.evidence_text)}
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <ul class="reasons-list">
+            ${r.explainability_reasons.map(reason => `<li><strong>Finding:</strong> ${escapeHtml(reason)}</li>`).join('')}
+          </ul>
+        `}
       </div>
 
-      <!-- ROOT-CAUSE AI CAUSAL ATTRIBUTION & PLAYBOOK IN REPORT -->
+      <!-- PREVENTIVE SOLUTIONS (HOW CAN WASTE BE PREVENTED?) -->
+      <div>
+        <div class="report-section-title"><i class="fa-solid fa-shield-halved text-cyan"></i> How can the Waste be Prevented? (Actionable Remedies)</div>
+        ${solutions.length > 0 ? `
+          <div class="solution-cards-grid" style="margin-bottom: 1rem;">
+            ${solutions.map(sol => `
+              <div class="solution-card">
+                <div class="solution-icon-box"><i class="fa-solid ${sol.icon || 'fa-shield-halved'}"></i></div>
+                <div class="solution-card-body">
+                  <div class="solution-title-row">
+                    <h5 class="solution-title">${escapeHtml(sol.title)}</h5>
+                    <span class="badge badge-subtle text-xs">${escapeHtml(sol.priority || 'MEDIUM')} PRIORITY</span>
+                  </div>
+                  <p class="solution-text">${escapeHtml(sol.solution)}</p>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        ` : `
+          <ul class="actions-list">
+            ${r.actionable_recommendations.map(action => `<li><i class="fa-regular fa-square"></i> ${escapeHtml(action)}</li>`).join('')}
+          </ul>
+        `}
+      </div>
+
+      <!-- RECOMMENDED ACTION PLAN (Inspect -> Adjust -> Maintain -> Monitor) -->
+      ${actionPlan && actionPlan.steps ? `
+      <div>
+        <div class="report-section-title"><i class="fa-solid fa-list-check text-green"></i> Recommended Action Plan (Inspect → Adjust → Maintain → Monitor)</div>
+        <div class="risk-action-box" style="margin-bottom: 1rem;">
+          <div class="risk-action-summary">${escapeHtml(actionPlan.summary)}</div>
+          <ol class="action-steps-checklist">
+            ${actionPlan.steps.map(step => `<li>${escapeHtml(step)}</li>`).join('')}
+          </ol>
+        </div>
+      </div>
+      ` : ''}
+
+      <!-- ROOT-CAUSE AI CAUSAL ATTRIBUTION -->
       ${r.root_cause_analysis && r.root_cause_analysis.primary_cause && r.root_cause_analysis.primary_cause.is_active ? `
       <div>
         <div class="report-section-title"><i class="fa-solid fa-brain-circuit text-yellow"></i> Root-Cause AI Causal Decomposition & Estimated Waste Savings</div>
         <div class="p-3 mb-3" style="background: rgba(0,0,0,0.25); border-radius: var(--radius-sm); border-left: 3px solid var(--risk-danger);">
           <div class="flex-between">
-            <span class="font-bold text-yellow" style="font-size: 0.95rem;">${r.root_cause_analysis.primary_cause.title}</span>
+            <span class="font-bold text-yellow" style="font-size: 0.95rem;">${escapeHtml(r.root_cause_analysis.primary_cause.title)}</span>
             <span class="badge badge-danger">${r.root_cause_analysis.primary_cause.attribution_pct}% Risk Attribution</span>
           </div>
-          <p class="text-xs text-muted mt-1">${r.root_cause_analysis.primary_cause.explanation}</p>
+          <p class="text-xs text-muted mt-1">${escapeHtml(r.root_cause_analysis.primary_cause.explanation)}</p>
         </div>
       </div>
       ` : ''}
-
-      <!-- CORRECTIVE ACTION PROTOCOLS -->
-      <div>
-        <div class="report-section-title"><i class="fa-solid fa-clipboard-check text-green"></i> Required Corrective Action Protocol & Quality Mitigations</div>
-        <ul class="actions-list">
-          ${r.actionable_recommendations.map(action => `<li><i class="fa-regular fa-square"></i> ${action}</li>`).join('')}
-        </ul>
-      </div>
 
       <!-- AUDIT SIGNOFF BOXES -->
       <div class="report-signatures-grid">

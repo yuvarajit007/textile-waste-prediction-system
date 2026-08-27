@@ -316,11 +316,117 @@ def run_all_tests():
     print(f"  Total Potential Waste Saved across plant: {plant_rca['total_potential_waste_kg_saved']} kg")
     print("  [PASS] Plant-Wide Pareto and strategic recommendation engine verified.")
 
+    # ----------------------------------------------------
+    # TEST 15: Evidence-Based Reason Cards Verification
+    # ----------------------------------------------------
+    print("\n[TEST 15] Verifying Evidence-Based Reason Cards Generation...")
+    high_waste_stress_batch = {
+        "batch_id": "T15-HIGH-STRESS",
+        "machine_id": "M02",
+        "fabric_type": "Silk",
+        "shift": "Night",
+        "operator": "Priya Sharma",
+        "total_production": 800.0,
+        "waste_quantity": 72.0,  # 9.0% waste
+        "production_speed": 940.0,  # Benchmark is ~650 rpm
+        "machine_age": 6.5,
+        "last_maintenance_date": (today - timedelta(days=55)).strftime("%Y-%m-%d"),  # 55 days
+        "humidity": 38.0,  # Dry
+        "temperature": 31.0
+    }
+    clean_15 = validate_and_clean_batch(high_waste_stress_batch)
+    pred_15 = ml_engine.predict_batch(clean_15)
+    reason_cards = pred_15.get("reason_cards", [])
+    assert len(reason_cards) >= 3, f"Expected at least 3 reason cards for multi-factor batch, got {len(reason_cards)}"
+    
+    # Verify card structure
+    for card in reason_cards:
+        assert "id" in card and "title" in card and "severity" in card
+        assert "observed" in card and "benchmark" in card and "impact" in card
+        assert "icon" in card and "badge_color" in card
+    
+    speed_card = next((c for c in reason_cards if c["id"] == "production_speed"), None)
+    assert speed_card is not None, f"Expected production_speed reason card, got {[c['id'] for c in reason_cards]}"
+    assert "940" in speed_card["observed"], f"Observed speed should be in card: {speed_card['observed']}"
+    assert "RPM" in speed_card["benchmark"] and "Silk" in speed_card["benchmark"], f"Benchmark speed should be in card: {speed_card['benchmark']}"
+    print(f"  [PASS] Speed Card generated: Observed='{speed_card['observed']}' vs Benchmark='{speed_card['benchmark']}' | Severity='{speed_card['severity']}'")
+
+    # ----------------------------------------------------
+    # TEST 16: 1-to-1 Preventive Solutions Mapping
+    # ----------------------------------------------------
+    print("\n[TEST 16] Verifying 1-to-1 Reason -> Solution Preventive Mapping...")
+    solutions = pred_15.get("preventive_solutions", [])
+    assert len(solutions) >= 3, f"Expected at least 3 solutions, got {len(solutions)}"
+    for sol in solutions:
+        assert "reason_id" in sol and "title" in sol and "solution" in sol and "priority" in sol
+    
+    speed_sol = next((s for s in solutions if s["reason_id"] == "production_speed"), None)
+    assert speed_sol is not None, "Expected production_speed preventive solution"
+    assert "Reduce production speed" in speed_sol["solution"] or "RPM" in speed_sol["solution"]
+    print(f"  [PASS] Solution mapped: '{speed_sol['title']}' -> '{speed_sol['solution']}' (Priority: {speed_sol['priority']})")
+
+    # ----------------------------------------------------
+    # TEST 17: Tailored Recommended Action Plan (Inspect -> Adjust -> Maintain -> Monitor)
+    # ----------------------------------------------------
+    print("\n[TEST 17] Verifying Recommended Action Plan Protocol...")
+    action_plan = pred_15.get("recommended_action_plan", {})
+    assert "summary" in action_plan and "protocol" in action_plan and "steps" in action_plan
+    assert action_plan["protocol"] == "Inspect -> Adjust -> Maintain -> Monitor"
+    assert len(action_plan["steps"]) >= 4, f"Expected at least 4 action steps, got {len(action_plan['steps'])}"
+    print(f"  Protocol: {action_plan['protocol']}")
+    print(f"  Summary: {action_plan['summary']}")
+    for idx, st in enumerate(action_plan["steps"], 1):
+        print(f"    Step {idx}: {st}")
+    print("  [PASS] Recommended Action Plan fully conforms to Inspect -> Adjust -> Maintain -> Monitor protocol.")
+
+    # ----------------------------------------------------
+    # TEST 18: Missing Humidity Reason Card (No False Alarm)
+    # ----------------------------------------------------
+    print("\n[TEST 18] Verifying Missing Humidity Reason Card...")
+    missing_hum_batch = {
+        "batch_id": "T18-MISSING-HUM",
+        "machine_id": "M01",
+        "fabric_type": "Cotton",
+        "shift": "Morning",
+        "operator": "David Kim",
+        "total_production": 1200.0,
+        "waste_quantity": 40.0,
+        "production_speed": 820.0,
+        "machine_age": 2.0,
+        "last_maintenance_date": (today - timedelta(days=10)).strftime("%Y-%m-%d"),
+        "humidity": None,  # Missing!
+        "temperature": 24.0
+    }
+    clean_18 = validate_and_clean_batch(missing_hum_batch)
+    pred_18 = ml_engine.predict_batch(clean_18)
+    hum_card = next((c for c in pred_18.get("reason_cards", []) if c["id"] == "missing_humidity"), None)
+    assert hum_card is not None, "Expected missing_humidity card"
+    assert "unavailable" in hum_card["impact"].lower() or "missing" in hum_card["observed"].lower()
+    print(f"  [PASS] Missing humidity handled with transparent explainability: {hum_card['impact']}")
+
+    # ----------------------------------------------------
+    # TEST 19: Waste Causes and Prevention Summary Table
+    # ----------------------------------------------------
+    print("\n[TEST 19] Verifying Waste Causes and Prevention Overview Summary Aggregator...")
+    from backend.root_cause_ai import get_waste_causes_prevention_summary
+    from backend.database import get_settings
+    
+    settings = get_settings()
+    summary_rows = get_waste_causes_prevention_summary(df_samples, analyzer, settings)
+    assert isinstance(summary_rows, list) and len(summary_rows) > 0, f"Expected non-empty list of summary causes, got {summary_rows}"
+    top_cause = summary_rows[0]
+    assert "cause_name" in top_cause and "category" in top_cause and "affected_batches" in top_cause
+    assert "avg_waste_pct" in top_cause and "preventive_action" in top_cause and "risk_level" in top_cause
+    print(f"  Top Aggregated Cause: {top_cause['cause_name']} | Category: {top_cause['category']} | Affected Batches: {top_cause['affected_batches']} | Avg Waste: {top_cause['avg_waste_pct']}%")
+    print(f"  Preventive Remedy: {top_cause['preventive_action']}")
+    print("  [PASS] Waste causes and prevention summary aggregator validated.")
+
     print("\n" + "=" * 70)
-    print("ALL 14 UNIT & ROOT-CAUSE AI TESTS PASSED SUCCESSFULLY!")
+    print("ALL 19 TESTS (UNIT, ML, RCA, AND REASON-SOLUTION ENGINE) PASSED!")
     print("=" * 70)
 
 
 if __name__ == "__main__":
     run_all_tests()
+
 

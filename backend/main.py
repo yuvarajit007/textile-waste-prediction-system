@@ -297,11 +297,23 @@ def get_correlations_analytics():
 def get_plant_root_cause_analysis():
     """
     Returns plant-wide Root-Cause Pareto analysis, failure category distribution,
-    machine-level failure modes, and prioritized recommendations.
+    machine-level failure modes, prioritized recommendations, and waste causes summary.
     """
     df = fetch_valid_batches_df()
     settings = get_settings()
     return root_cause_engine.generate_plant_root_cause_analysis(df, baseline_analyzer, settings)
+
+
+@app.get("/api/analytics/waste-causes-prevention")
+def get_waste_causes_prevention():
+    """
+    Returns aggregated table of top waste causes, affected batch counts,
+    average waste percentages, preventive actions, and risk tiers.
+    """
+    df = fetch_valid_batches_df()
+    settings = get_settings()
+    summary = root_cause_engine.get_waste_causes_prevention_summary(df, baseline_analyzer, settings)
+    return {"summary": summary}
 
 
 @app.post("/api/root-cause/diagnose")
@@ -509,6 +521,9 @@ def get_batch_finalized_report(batch_id: str):
         },
         "explainability_reasons": b.get("reasons", []),
         "actionable_recommendations": b.get("actions", []),
+        "reason_cards": root_cause_diag.get("reason_cards", []),
+        "preventive_solutions": root_cause_diag.get("preventive_solutions", []),
+        "recommended_action_plan": root_cause_diag.get("recommended_action_plan", {}),
         "root_cause_analysis": root_cause_diag,
         "audit_signoff": {
             "audited_by": "TexPulse AI Intelligent Production Engine v1.0",
