@@ -32,3 +32,5 @@ desktop.ini
 dist/
 build/
 *.egg-info/
+tools/
+
