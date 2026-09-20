@@ -1,4 +1,15 @@
+---
+title: TexPulse AI Textile Waste Prediction
+emoji: 🧵
+colorFrom: indigo
+colorTo: blue
+sdk: docker
+app_port: 7860
+pinned: false
+---
+
 # 🧵 TexPulse AI — Textile Production Waste Prediction & Risk Classification System
+
 
 An enterprise-grade, AI-powered industrial intelligence dashboard designed to predict textile production waste, classify batch risks in real-time, detect production anomalies, and identify root causes behind textile manufacturing inefficiencies.
 
