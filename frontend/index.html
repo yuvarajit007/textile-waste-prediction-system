@@ -387,328 +387,812 @@
         <!-- ============================================================ -->
         <section id="tab-predictor" class="tab-pane">
           
-          <!-- QUICK TEST-CASE PRESETS BAR -->
-          <div class="card card-glass mb-4">
-            <div class="card-header">
-              <div>
-                <h3 class="card-title"><i class="fa-solid fa-flask-vial text-purple"></i> Quick Test-Case Presets</h3>
-                <p class="card-subtitle">Load validated edge cases with one click to test AI risk classification and explainability:</p>
-              </div>
-            </div>
-            <div class="card-body">
-              <div class="preset-buttons-grid">
-                <button class="btn-preset" data-preset="normal">
-                  <span class="preset-title">Standard Normal Batch</span>
-                  <span class="preset-desc">Cotton on M08, 1,200kg / 42kg (3.5%)</span>
-                </button>
-                <button class="btn-preset" data-preset="high_prod_low_pct">
-                  <span class="preset-title">High Prod + High Absolute Waste</span>
-                  <span class="preset-desc">Denim 5,000kg / 100kg = 2.0% (NORMAL)</span>
-                </button>
-                <button class="btn-preset" data-preset="low_prod_high_pct">
-                  <span class="preset-title">Low Prod + High Waste %</span>
-                  <span class="preset-desc">Silk 100kg / 30kg = 30.0% (HIGH RISK)</span>
-                </button>
-                <button class="btn-preset" data-preset="new_machine">
-                  <span class="preset-title">New Machine (Cold-Start M10)</span>
-                  <span class="preset-desc">Brand new loom, adaptive baseline fallback</span>
-                </button>
-                <button class="btn-preset" data-preset="overdue_maint">
-                  <span class="preset-title">Maintenance Overdue</span>
-                  <span class="preset-desc">M02 overdue 95 days, mechanical friction risk</span>
-                </button>
-                <button class="btn-preset" data-preset="missing_humidity">
-                  <span class="preset-title">Missing Humidity</span>
-                  <span class="preset-desc">Telemetry offline, graceful imputation</span>
-                </button>
-                <button class="btn-preset" data-preset="high_speed_stress">
-                  <span class="preset-title">Abnormal Production Speed</span>
-                  <span class="preset-desc">Silk running at 980 rpm (150% above safe pace)</span>
-                </button>
-                <button class="btn-preset" data-preset="zero_prod">
-                  <span class="preset-title">Zero Production Guard</span>
-                  <span class="preset-desc">0 kg input, division-by-zero prevention</span>
-                </button>
-              </div>
-            </div>
+          <!-- SUB-TAB NAVIGATION PILLS -->
+          <div class="sub-tab-nav mb-4">
+            <button class="sub-tab-btn active" data-subtab="subtab-expected-waste" id="btn-subtab-expected-waste">
+              <i class="fa-solid fa-magnifying-glass-chart"></i>
+              <span>Expected Waste Prediction</span>
+              <span class="badge-pulse badge-cyan text-xs">Pre-Production</span>
+            </button>
+            <button class="sub-tab-btn" data-subtab="subtab-after-prediction" id="btn-subtab-after-prediction">
+              <i class="fa-solid fa-wand-magic-sparkles"></i>
+              <span>AI-Risk Predictor with After Prediction</span>
+              <span class="badge-pulse text-xs">After-Prediction AI</span>
+            </button>
           </div>
 
-          <!-- PREDICTOR GRID: FORM + RESULTS -->
-          <div class="grid-2-col">
+          <!-- ============================================================ -->
+          <!-- SUB-TAB 1: EXPECTED WASTE PREDICTION (PRE-PRODUCTION) -->
+          <!-- ============================================================ -->
+          <div id="subtab-expected-waste" class="sub-tab-pane active">
             
-            <!-- INPUT FORM CARD -->
-            <div class="card card-glass">
+            <!-- QUICK TEST-CASE PRESETS BAR -->
+            <div class="card card-glass mb-4">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">Production Batch Parameters</h3>
-                  <p class="card-subtitle">Enter real-time telemetry or simulated run settings</p>
+                  <h3 class="card-title"><i class="fa-solid fa-flask-vial text-purple"></i> Quick Test-Case Presets (Expected Waste)</h3>
+                  <p class="card-subtitle">Load validated edge cases with one click to test AI Expected Waste prediction, risk classification, and explainability:</p>
                 </div>
               </div>
               <div class="card-body">
-                <form id="predict-form">
-                  
-                  <div class="form-row">
-                    <div class="form-group col-6">
-                      <label for="p-batch-id">Batch ID</label>
-                      <input type="text" id="p-batch-id" class="form-control" value="BATCH-2026-LIVE" required>
-                    </div>
-                    <div class="form-group col-6">
-                      <label for="p-machine-id">Machine ID</label>
-                      <select id="p-machine-id" class="form-control" required>
-                        <option value="M01">M01 (8.5 yrs - Good)</option>
-                        <option value="M02">M02 (6.2 yrs - Overdue)</option>
-                        <option value="M03">M03 (9.0 yrs - Mature)</option>
-                        <option value="M04">M04 (3.5 yrs - Good)</option>
-                        <option value="M05">M05 (4.1 yrs - Overdue)</option>
-                        <option value="M06">M06 (2.8 yrs - Good)</option>
-                        <option value="M07">M07 (5.0 yrs - Approaching)</option>
-                        <option value="M08">M08 (1.5 yrs - High Speed)</option>
-                        <option value="M09">M09 (0.8 yrs - New)</option>
-                        <option value="M10">M10 (0.1 yrs - Brand New)</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group col-4">
-                      <label for="p-fabric-type">Fabric Type</label>
-                      <select id="p-fabric-type" class="form-control" required>
-                        <option value="Cotton">Cotton</option>
-                        <option value="Polyester">Polyester</option>
-                        <option value="Silk">Silk (Delicate)</option>
-                        <option value="Denim">Denim (Heavy)</option>
-                        <option value="Wool">Wool</option>
-                        <option value="Linen">Linen</option>
-                        <option value="Rayon">Rayon</option>
-                      </select>
-                    </div>
-                    <div class="form-group col-4">
-                      <label for="p-shift">Shift</label>
-                      <select id="p-shift" class="form-control" required>
-                        <option value="Morning">Morning</option>
-                        <option value="Afternoon">Afternoon</option>
-                        <option value="Night">Night</option>
-                      </select>
-                    </div>
-                    <div class="form-group col-4">
-                      <label for="p-operator">Operator</label>
-                      <select id="p-operator" class="form-control" required>
-                        <option value="John Doe">John Doe</option>
-                        <option value="Priya Sharma">Priya Sharma</option>
-                        <option value="Carlos Rossi">Carlos Rossi</option>
-                        <option value="Fatima Al-Mansoor">Fatima Al-Mansoor</option>
-                        <option value="Wei Zhang">Wei Zhang</option>
-                        <option value="Elena Rostova">Elena Rostova</option>
-                        <option value="David Kim">David Kim</option>
-                        <option value="Marcus Vance">Marcus Vance</option>
-                      </select>
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group col-6">
-                      <label for="p-total-prod">Total Production Quantity (kg)</label>
-                      <input type="number" id="p-total-prod" class="form-control" value="1200" step="1" required>
-                    </div>
-                    <div class="form-group col-6">
-                      <label for="p-waste-qty">Waste Quantity (kg)</label>
-                      <input type="number" id="p-waste-qty" class="form-control" value="45" step="0.1" required>
-                    </div>
-                  </div>
-
-                  <!-- Live Computed Waste % Indicator -->
-                  <div class="live-calc-box">
-                    <span class="calc-title">Computed Waste Percentage:</span>
-                    <span class="calc-value" id="p-computed-waste-display">3.75%</span>
-                  </div>
-
-                  <div class="form-row mt-3">
-                    <div class="form-group col-6">
-                      <label for="p-speed">Production Speed (rpm / m/min)</label>
-                      <input type="number" id="p-speed" class="form-control" value="850" step="10" required>
-                    </div>
-                    <div class="form-group col-6">
-                      <label for="p-maint-date">Last Maintenance Date</label>
-                      <input type="date" id="p-maint-date" class="form-control" required>
-                    </div>
-                  </div>
-
-                  <div class="form-row">
-                    <div class="form-group col-4">
-                      <label for="p-machine-age">Machine Age (Years)</label>
-                      <input type="number" id="p-machine-age" class="form-control" value="3.5" step="0.1" required>
-                    </div>
-                    <div class="form-group col-4">
-                      <label for="p-humidity">Humidity (% RH)</label>
-                      <input type="number" id="p-humidity" class="form-control" placeholder="e.g. 55 (leave empty for missing)" step="0.5">
-                    </div>
-                    <div class="form-group col-4">
-                      <label for="p-temperature">Temperature (°C)</label>
-                      <input type="number" id="p-temperature" class="form-control" value="25.5" step="0.5" required>
-                    </div>
-                  </div>
-
-                  <div class="form-actions mt-4">
-                    <button type="submit" class="btn btn-primary btn-block" id="btn-run-prediction">
-                      <i class="fa-solid fa-wand-magic-sparkles"></i>
-                      <span>Analyze Risk & Predict</span>
-                    </button>
-                  </div>
-                </form>
+                <div class="preset-buttons-grid">
+                  <button class="btn-preset" data-preset="expected_waste_demo">
+                    <span class="preset-title">M03 Expected Waste Demo</span>
+                    <span class="preset-desc">M03 Cotton, 1,000kg, Night shift, Overdue (7.5% Expected Waste)</span>
+                  </button>
+                  <button class="btn-preset" data-preset="normal">
+                    <span class="preset-title">Standard Normal Batch</span>
+                    <span class="preset-desc">Cotton on M08, 1,200kg (3.5% Expected - NORMAL)</span>
+                  </button>
+                  <button class="btn-preset" data-preset="high_prod_low_pct">
+                    <span class="preset-title">High Prod + Low Waste %</span>
+                    <span class="preset-desc">Denim 5,000kg, Actual 100kg = 2.0% (NORMAL)</span>
+                  </button>
+                  <button class="btn-preset" data-preset="low_prod_high_pct">
+                    <span class="preset-title">Low Prod + High Waste %</span>
+                    <span class="preset-desc">Silk 100kg, Actual 30kg = 30.0% (HIGH RISK)</span>
+                  </button>
+                  <button class="btn-preset" data-preset="new_machine">
+                    <span class="preset-title">New Machine (Cold-Start M10)</span>
+                    <span class="preset-desc">Brand new loom, adaptive baseline fallback</span>
+                  </button>
+                  <button class="btn-preset" data-preset="overdue_maint">
+                    <span class="preset-title">Maintenance Overdue</span>
+                    <span class="preset-desc">M02 overdue 95 days, mechanical wear risk</span>
+                  </button>
+                  <button class="btn-preset" data-preset="missing_humidity">
+                    <span class="preset-title">Missing Humidity</span>
+                    <span class="preset-desc">Telemetry offline, graceful imputation</span>
+                  </button>
+                  <button class="btn-preset" data-preset="high_speed_stress">
+                    <span class="preset-title">Abnormal Production Speed</span>
+                    <span class="preset-desc">Silk running at 980 rpm (150% above safe pace)</span>
+                  </button>
+                  <button class="btn-preset" data-preset="zero_prod">
+                    <span class="preset-title">Zero Production Guard</span>
+                    <span class="preset-desc">0 kg input, division-by-zero prevention</span>
+                  </button>
+                </div>
               </div>
             </div>
 
-            <!-- PREDICTION OUTPUT & EXPLANATION CARD -->
-            <div class="card card-glass" id="prediction-result-panel">
+            <!-- PREDICTOR GRID: FORM + RESULTS -->
+            <div class="grid-2-col">
+              
+              <!-- INPUT FORM CARD -->
+              <div class="card card-glass">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title">Batch & Machine Details</h3>
+                    <p class="card-subtitle">Enter machine and production parameters to forecast expected waste before/during production</p>
+                  </div>
+                </div>
+                <div class="card-body">
+                  <form id="predict-form">
+                    
+                    <div class="form-row">
+                      <div class="form-group col-6">
+                        <label for="p-batch-id">Batch ID</label>
+                        <input type="text" id="p-batch-id" class="form-control" value="BATCH-2026-LIVE" required>
+                      </div>
+                      <div class="form-group col-6">
+                        <label for="p-machine-id">Machine ID</label>
+                        <select id="p-machine-id" class="form-control" required>
+                          <option value="M01">M01 (8.5 yrs - Good)</option>
+                          <option value="M02">M02 (6.2 yrs - Overdue)</option>
+                          <option value="M03" selected>M03 (9.0 yrs - Mature)</option>
+                          <option value="M04">M04 (3.5 yrs - Good)</option>
+                          <option value="M05">M05 (4.1 yrs - Overdue)</option>
+                          <option value="M06">M06 (2.8 yrs - Good)</option>
+                          <option value="M07">M07 (5.0 yrs - Approaching)</option>
+                          <option value="M08">M08 (1.5 yrs - High Speed)</option>
+                          <option value="M09">M09 (0.8 yrs - New)</option>
+                          <option value="M10">M10 (0.1 yrs - Brand New)</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group col-4">
+                        <label for="p-fabric-type">Fabric Type</label>
+                        <select id="p-fabric-type" class="form-control" required>
+                          <option value="Cotton" selected>Cotton</option>
+                          <option value="Polyester">Polyester</option>
+                          <option value="Silk">Silk (Delicate)</option>
+                          <option value="Denim">Denim (Heavy)</option>
+                          <option value="Wool">Wool</option>
+                          <option value="Linen">Linen</option>
+                          <option value="Rayon">Rayon</option>
+                        </select>
+                      </div>
+                      <div class="form-group col-4">
+                        <label for="p-shift">Shift</label>
+                        <select id="p-shift" class="form-control" required>
+                          <option value="Morning">Morning</option>
+                          <option value="Afternoon">Afternoon</option>
+                          <option value="Night" selected>Night</option>
+                        </select>
+                      </div>
+                      <div class="form-group col-4">
+                        <label for="p-operator">Operator</label>
+                        <select id="p-operator" class="form-control" required>
+                          <option value="John Doe">John Doe</option>
+                          <option value="Priya Sharma">Priya Sharma</option>
+                          <option value="Carlos Rossi">Carlos Rossi</option>
+                          <option value="Fatima Al-Mansoor">Fatima Al-Mansoor</option>
+                          <option value="Wei Zhang">Wei Zhang</option>
+                          <option value="Elena Rostova">Elena Rostova</option>
+                          <option value="David Kim">David Kim</option>
+                          <option value="Marcus Vance">Marcus Vance</option>
+                        </select>
+                      </div>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group col-6">
+                        <label for="p-total-prod">Total Production Quantity (kg) <span class="text-danger">*</span></label>
+                        <input type="number" id="p-total-prod" class="form-control" value="1000" step="1" required>
+                      </div>
+                      <div class="form-group col-6">
+                        <label for="p-waste-qty">Actual Waste Quantity (kg) <span class="text-muted text-xs">(Optional - for comparison)</span></label>
+                        <input type="number" id="p-waste-qty" class="form-control" placeholder="Leave empty for new batch" step="0.1">
+                      </div>
+                    </div>
+
+                    <!-- Live Pre-Production Waste Notice -->
+                    <div class="live-calc-box" id="p-live-mode-notice">
+                      <span class="calc-title"><i class="fa-solid fa-sparkles text-cyan"></i> Mode:</span>
+                      <span class="calc-value" id="p-computed-waste-display">Pre-Production Expected Waste Forecasting</span>
+                    </div>
+
+                    <div class="form-row mt-3">
+                      <div class="form-group col-6">
+                        <label for="p-speed">Production Speed (rpm / m/min)</label>
+                        <input type="number" id="p-speed" class="form-control" value="880" step="10" required>
+                      </div>
+                      <div class="form-group col-6">
+                        <label for="p-maint-date">Last Maintenance Date</label>
+                        <input type="date" id="p-maint-date" class="form-control" required>
+                      </div>
+                    </div>
+
+                    <div class="form-row">
+                      <div class="form-group col-4">
+                        <label for="p-machine-age">Machine Age (Years)</label>
+                        <input type="number" id="p-machine-age" class="form-control" value="8.0" step="0.1" required>
+                      </div>
+                      <div class="form-group col-4">
+                        <label for="p-humidity">Humidity (% RH)</label>
+                        <input type="number" id="p-humidity" class="form-control" value="75" placeholder="e.g. 55 (leave empty for missing)" step="0.5">
+                      </div>
+                      <div class="form-group col-4">
+                        <label for="p-temperature">Temperature (°C)</label>
+                        <input type="number" id="p-temperature" class="form-control" value="34.0" step="0.5" required>
+                      </div>
+                    </div>
+
+                    <div class="form-actions mt-4">
+                      <button type="submit" class="btn btn-primary btn-block" id="btn-run-prediction">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i>
+                        <span>Predict Expected Waste</span>
+                      </button>
+                    </div>
+                  </form>
+                </div>
+              </div>
+
+              <!-- PREDICTION OUTPUT & EXPLANATION CARD -->
+              <div class="card card-glass" id="prediction-result-panel">
+                <div class="card-header">
+                  <div>
+                    <h3 class="card-title"><i class="fa-solid fa-magnifying-glass-chart text-cyan"></i> 🔍 EXPECTED WASTE PREDICTION</h3>
+                    <p class="card-subtitle">AI continuous regression forecast & multi-factor risk deconstruction</p>
+                  </div>
+                  <div class="badge" id="res-confidence-badge">Confidence: 95%</div>
+                </div>
+                <div class="card-body">
+                  
+                  <!-- 1. EXPECTED WASTE HERO CARDS -->
+                  <div class="expected-waste-hero-grid">
+                    <div class="metric-stat-box hero-stat-primary">
+                      <span class="stat-label">Expected Waste %</span>
+                      <h2 class="stat-value text-accent font-accent" id="res-expected-waste-pct">7.5%</h2>
+                      <span class="stat-subtext" id="res-likely-pct-range">Likely Range: 6.0%–9.5%</span>
+                    </div>
+                    <div class="metric-stat-box">
+                      <span class="stat-label">Expected Waste (kg)</span>
+                      <h2 class="stat-value text-danger" id="res-expected-waste-kg">75 kg</h2>
+                      <span class="stat-subtext" id="res-likely-kg-range">Likely: 60–95 kg</span>
+                    </div>
+                    <div class="metric-stat-box">
+                      <span class="stat-label">Expected Good Production</span>
+                      <h2 class="stat-value text-normal" id="res-expected-good-prod">925 kg</h2>
+                      <span class="stat-subtext">Total - Expected Waste</span>
+                    </div>
+                    <div class="metric-stat-box risk-stat-interactive" id="res-risk-card-container" title="Click to inspect Risk Factor Breakdown">
+                      <div class="flex-between">
+                        <span class="stat-label">Risk Level</span>
+                        <span class="text-xs text-muted" id="res-risk-status-tag">Pre-Production</span>
+                      </div>
+                      <div class="risk-badge-large badge-warning mt-1" id="res-risk-badge">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        <span id="res-risk-text">WARNING</span>
+                      </div>
+                      <div class="risk-meter-track">
+                        <div class="risk-meter-fill" id="res-risk-meter-fill" style="width: 55%; background: var(--risk-warning);"></div>
+                      </div>
+                      <div class="flex-between mt-1">
+                        <span class="stat-subtext" id="res-risk-score-sub">Risk Score: 55/100</span>
+                        <span class="text-xs font-bold text-cyan" style="cursor: pointer;"><i class="fa-solid fa-arrow-down"></i> Factors</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 2. MULTI-LEVEL HISTORICAL PERFORMANCE COMPARISON -->
+                  <div class="explainability-block mt-4" id="panel-hist-comparison">
+                    <div class="section-title-wrap">
+                      <h4 class="section-heading text-purple">
+                        <i class="fa-solid fa-scale-balanced"></i> HISTORICAL PERFORMANCE COMPARISON
+                      </h4>
+                      <p class="section-subtext" id="res-hist-comparison-summary">Expected waste is higher than the historical average for this machine and fabric combination.</p>
+                    </div>
+                    <div class="hist-comparison-grid mt-2">
+                      <div class="hist-stat-item">
+                        <span class="hist-stat-title">Overall Factory Avg</span>
+                        <span class="hist-stat-val" id="hist-comp-factory">4.0%</span>
+                      </div>
+                      <div class="hist-stat-item">
+                        <span class="hist-stat-title">Machine Specific Avg</span>
+                        <span class="hist-stat-val" id="hist-comp-machine">4.2%</span>
+                      </div>
+                      <div class="hist-stat-item">
+                        <span class="hist-stat-title">Fabric Specific Avg</span>
+                        <span class="hist-stat-val" id="hist-comp-fabric">5.1%</span>
+                      </div>
+                      <div class="hist-stat-item">
+                        <span class="hist-stat-title">Machine + Fabric Combo</span>
+                        <span class="hist-stat-val" id="hist-comp-combo">4.6%</span>
+                      </div>
+                      <div class="hist-stat-item">
+                        <span class="hist-stat-title">Shift Specific Avg</span>
+                        <span class="hist-stat-val" id="hist-comp-shift">3.9%</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- 3. EXPECTED VS ACTUAL WASTE COMPARISON TABLE (Shown when actual waste entered) -->
+                  <div class="explainability-block mt-4 hidden" id="panel-expected-vs-actual">
+                    <div class="section-title-wrap">
+                      <h4 class="section-heading text-cyan">
+                        <i class="fa-solid fa-code-compare"></i> EXPECTED VS. ACTUAL WASTE COMPARISON
+                      </h4>
+                      <p class="section-subtext">Post-production variance evaluation & continuous AI model accuracy</p>
+                    </div>
+                    <div class="table-responsive mt-2">
+                      <table class="table table-bordered table-sm" id="table-expected-vs-actual">
+                        <thead>
+                          <tr>
+                            <th>Measurement</th>
+                            <th class="text-right">Value</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td>Expected Waste %</td>
+                            <td class="text-right font-bold text-cyan" id="eva-expected-pct">7.5%</td>
+                          </tr>
+                          <tr>
+                            <td>Actual Waste %</td>
+                            <td class="text-right font-bold text-normal" id="eva-actual-pct">8.2%</td>
+                          </tr>
+                          <tr>
+                            <td>Expected Waste</td>
+                            <td class="text-right font-bold" id="eva-expected-kg">75.0 kg</td>
+                          </tr>
+                          <tr>
+                            <td>Actual Waste</td>
+                            <td class="text-right font-bold" id="eva-actual-kg">82.0 kg</td>
+                          </tr>
+                          <tr>
+                            <td>Difference</td>
+                            <td class="text-right font-bold font-accent" id="eva-diff-kg">+7.0 kg</td>
+                          </tr>
+                          <tr>
+                            <td>Absolute Error</td>
+                            <td class="text-right font-bold" id="eva-abs-error">7.0 kg</td>
+                          </tr>
+                          <tr>
+                            <td>Prediction Accuracy</td>
+                            <td class="text-right font-bold text-green" id="eva-accuracy-pct">91.5%</td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+
+                  <!-- 4. WHY IS THIS WASTE EXPECTED? (Evidence-Based Reason Cards) -->
+                  <div class="explainability-block mt-4" id="panel-why-at-risk">
+                    <div class="section-title-wrap">
+                      <h4 class="section-heading text-danger">
+                        <i class="fa-solid fa-circle-question"></i> WHY IS THIS WASTE EXPECTED?
+                      </h4>
+                      <p class="section-subtext">Key telemetry and operational factors driving the predicted waste</p>
+                    </div>
+                    <div class="reason-cards-grid" id="res-reason-cards-container">
+                      <div class="empty-state-notice">Run prediction to view evidence-based reason cards.</div>
+                    </div>
+                  </div>
+
+                  <!-- 5. HOW CAN THE EXPECTED WASTE BE REDUCED? (Reason -> Solution Cards) -->
+                  <div class="explainability-block mt-4" id="panel-how-to-prevent">
+                    <div class="section-title-wrap">
+                      <h4 class="section-heading text-cyan">
+                        <i class="fa-solid fa-shield-halved"></i> HOW CAN THE EXPECTED WASTE BE REDUCED?
+                      </h4>
+                      <p class="section-subtext">Direct Reason → Solution practical remedies to prevent or reduce material loss prior to production</p>
+                    </div>
+                    <div class="solution-cards-grid" id="res-preventive-solutions-container">
+                      <div class="empty-state-notice">Run prediction to view preventive remedies.</div>
+                    </div>
+                  </div>
+
+                  <!-- 6. RECOMMENDED ACTION (Inspect -> Adjust -> Maintain -> Monitor) -->
+                  <div class="explainability-block mt-4" id="panel-recommended-actions">
+                    <div class="section-title-wrap flex-between">
+                      <h4 class="section-heading text-green">
+                        <i class="fa-solid fa-list-check"></i> RECOMMENDED ACTION PLAN
+                      </h4>
+                      <span class="protocol-pill">Inspect → Adjust → Maintain → Monitor</span>
+                    </div>
+                    <div class="risk-action-box" id="res-action-box">
+                      <p class="risk-action-summary" id="res-action-summary">Production conditions are within the expected range. Continue monitoring waste percentage.</p>
+                      <ol class="action-steps-checklist" id="res-action-steps-list">
+                        <li>Continue production according to standard operational schedule.</li>
+                        <li>Monitor machine performance and real-time tension sensors.</li>
+                        <li>Maintain normal scheduled preventive maintenance timeline.</li>
+                      </ol>
+                    </div>
+                  </div>
+
+                  <!-- 7. RISK FACTOR BREAKDOWN BARS -->
+                  <div class="factor-breakdown-section mt-4" id="section-factor-breakdown">
+                    <h4 class="section-heading"><i class="fa-solid fa-chart-column text-muted"></i> Multi-Factor Risk Breakdown</h4>
+                    
+                    <div class="factor-bar-item">
+                      <div class="factor-info">
+                        <span>Waste Deviation vs Baseline</span>
+                        <span id="factor-waste-val">0%</span>
+                      </div>
+                      <div class="progress-track"><div class="progress-fill" id="bar-factor-waste" style="width: 0%;"></div></div>
+                    </div>
+
+                    <div class="factor-bar-item mt-2">
+                      <div class="factor-info">
+                        <span>Maintenance Overdue Friction</span>
+                        <span id="factor-maint-val">0%</span>
+                      </div>
+                      <div class="progress-track"><div class="progress-fill" id="bar-factor-maint" style="width: 0%;"></div></div>
+                    </div>
+
+                    <div class="factor-bar-item mt-2">
+                      <div class="factor-info">
+                        <span>Production Speed Stress</span>
+                        <span id="factor-speed-val">0%</span>
+                      </div>
+                      <div class="progress-track"><div class="progress-fill" id="bar-factor-speed" style="width: 0%;"></div></div>
+                    </div>
+
+                    <div class="factor-bar-item mt-2">
+                      <div class="factor-info">
+                        <span>Environmental / Machine Age</span>
+                        <span id="factor-env-val">0%</span>
+                      </div>
+                      <div class="progress-track"><div class="progress-fill" id="bar-factor-env" style="width: 0%;"></div></div>
+                    </div>
+                  </div>
+
+                  <!-- ROOT-CAUSE AI PRIMARY CAUSE CALLOUT IN PREDICTOR -->
+                  <div class="rca-pred-callout mt-4 p-3 card-glass hidden" id="pred-rca-container">
+                    <div class="flex-between">
+                      <span class="badge badge-danger" id="pred-rca-badge">ROOT CAUSE IDENTIFIED</span>
+                      <span class="text-xs font-accent" id="pred-rca-pct">--% Attribution</span>
+                    </div>
+                    <h5 class="mt-2 font-bold text-yellow" id="pred-rca-title">Primary Driver</h5>
+                    <p class="text-xs text-muted mt-1" id="pred-rca-explanation">Diagnostic explanation...</p>
+                    <button type="button" class="btn btn-sm btn-outline-cyan mt-2 w-100" id="btn-pred-to-rca">
+                      <i class="fa-solid fa-brain-circuit"></i> Deep-Dive in Root-Cause Studio
+                    </button>
+                  </div>
+
+                  <div class="mt-4 pt-2 border-top prediction-action-buttons">
+                    <button class="btn btn-secondary flex-1" id="btn-save-predicted-batch">
+                      <i class="fa-solid fa-floppy-disk"></i>
+                      <span>Save to Database</span>
+                    </button>
+                    <button class="btn btn-primary flex-1 btn-report-glow" id="btn-open-batch-report">
+                      <i class="fa-solid fa-file-contract"></i>
+                      <span>Generate Finalized Report</span>
+                    </button>
+                  </div>
+
+                </div>
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <!-- ============================================================ -->
+          <!-- SUB-TAB 2: AI-RISK PREDICTOR WITH AFTER PREDICTION -->
+          <!-- ============================================================ -->
+          <div id="subtab-after-prediction" class="sub-tab-pane">
+            
+            <!-- QUICK PRESETS FOR AFTER-PREDICTION -->
+            <div class="card card-glass mb-4">
               <div class="card-header">
                 <div>
-                  <h3 class="card-title">AI Prediction & Risk Analysis</h3>
-                  <p class="card-subtitle">Multi-factor intelligence, anomaly detection, and explainability</p>
+                  <h3 class="card-title"><i class="fa-solid fa-wand-magic-sparkles text-cyan"></i> AI-Risk Predictor & After-Prediction Test Presets</h3>
+                  <p class="card-subtitle">Load batch scenarios to assess risk and simulate counterfactual parameter optimization in real time:</p>
                 </div>
-                <div class="badge" id="res-confidence-badge">Confidence: 95%</div>
               </div>
               <div class="card-body">
+                <div class="preset-buttons-grid">
+                  <button class="btn-preset btn-after-preset" data-preset="overdue_maint">
+                    <span class="preset-title">M02 Severe Friction (HIGH RISK)</span>
+                    <span class="preset-desc">M02 Overdue 95d, 8.9% Waste → After-Prediction Recovery</span>
+                  </button>
+                  <button class="btn-preset btn-after-preset" data-preset="high_speed_stress">
+                    <span class="preset-title">High Speed Stress (Silk at 980 RPM)</span>
+                    <span class="preset-desc">Tension shock → Simulate speed reduction to 720 RPM</span>
+                  </button>
+                  <button class="btn-preset btn-after-preset" data-preset="low_prod_high_pct">
+                    <span class="preset-title">Low Prod High Waste (30.0% Waste)</span>
+                    <span class="preset-desc">Severe abnormality → Identify drivers & optimize</span>
+                  </button>
+                  <button class="btn-preset btn-after-preset" data-preset="normal">
+                    <span class="preset-title">Optimal Batch (M08 Baseline)</span>
+                    <span class="preset-desc">Cotton at 850 RPM, 3.5% Waste (NORMAL)</span>
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <!-- AFTER-PREDICTION MAIN GRID -->
+            <div class="grid-2-col">
+              
+              <!-- LEFT COLUMN: BATCH INPUT FORM & RISK CARD -->
+              <div class="flex-column gap-4">
                 
-                <!-- 1. BATCH PREDICTION HIGHLIGHT ROW (Waste % + Risk Score + Classification) -->
-                <div class="result-highlight-row">
-                  <div class="gauge-container">
-                    <div class="circular-progress" id="risk-gauge-circle">
-                      <div class="inner-circle">
-                        <span class="gauge-number" id="res-risk-score">0</span>
-                        <span class="gauge-sub">/ 100 Risk</span>
+                <!-- BATCH INPUT FORM CARD -->
+                <div class="card card-glass">
+                  <div class="card-header">
+                    <div>
+                      <h3 class="card-title"><i class="fa-solid fa-sliders text-cyan"></i> Batch & Production Inputs</h3>
+                      <p class="card-subtitle">Enter actual or real-time parameters for AI risk classification and counterfactual optimization</p>
+                    </div>
+                  </div>
+                  <div class="card-body">
+                    <form id="after-pred-form">
+                      
+                      <div class="form-row">
+                        <div class="form-group col-6">
+                          <label for="ap-batch-id">Batch ID</label>
+                          <input type="text" id="ap-batch-id" class="form-control" value="BATCH-AP-2026" required>
+                        </div>
+                        <div class="form-group col-6">
+                          <label for="ap-machine-id">Machine ID</label>
+                          <select id="ap-machine-id" class="form-control" required>
+                            <option value="M01">M01 (8.5 yrs - Good)</option>
+                            <option value="M02" selected>M02 (6.2 yrs - Overdue)</option>
+                            <option value="M03">M03 (9.0 yrs - Mature)</option>
+                            <option value="M04">M04 (3.5 yrs - Good)</option>
+                            <option value="M05">M05 (4.1 yrs - Overdue)</option>
+                            <option value="M06">M06 (2.8 yrs - Good)</option>
+                            <option value="M07">M07 (5.0 yrs - Approaching)</option>
+                            <option value="M08">M08 (1.5 yrs - High Speed)</option>
+                            <option value="M09">M09 (0.8 yrs - New)</option>
+                            <option value="M10">M10 (0.1 yrs - Brand New)</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="form-row">
+                        <div class="form-group col-4">
+                          <label for="ap-fabric-type">Fabric Type</label>
+                          <select id="ap-fabric-type" class="form-control" required>
+                            <option value="Cotton">Cotton</option>
+                            <option value="Polyester">Polyester</option>
+                            <option value="Silk">Silk (Delicate)</option>
+                            <option value="Denim">Denim (Heavy)</option>
+                            <option value="Wool" selected>Wool</option>
+                            <option value="Linen">Linen</option>
+                            <option value="Rayon">Rayon</option>
+                          </select>
+                        </div>
+                        <div class="form-group col-4">
+                          <label for="ap-shift">Shift</label>
+                          <select id="ap-shift" class="form-control" required>
+                            <option value="Morning">Morning</option>
+                            <option value="Afternoon">Afternoon</option>
+                            <option value="Night" selected>Night</option>
+                          </select>
+                        </div>
+                        <div class="form-group col-4">
+                          <label for="ap-operator">Operator</label>
+                          <select id="ap-operator" class="form-control" required>
+                            <option value="Elena Rostova" selected>Elena Rostova</option>
+                            <option value="John Doe">John Doe</option>
+                            <option value="Priya Sharma">Priya Sharma</option>
+                            <option value="Carlos Rossi">Carlos Rossi</option>
+                            <option value="Fatima Al-Mansoor">Fatima Al-Mansoor</option>
+                            <option value="Wei Zhang">Wei Zhang</option>
+                            <option value="David Kim">David Kim</option>
+                            <option value="Marcus Vance">Marcus Vance</option>
+                          </select>
+                        </div>
+                      </div>
+
+                      <div class="form-row">
+                        <div class="form-group col-6">
+                          <label for="ap-total-prod">Total Production (kg) <span class="text-danger">*</span></label>
+                          <input type="number" id="ap-total-prod" class="form-control" value="950" step="1" required>
+                        </div>
+                        <div class="form-group col-6">
+                          <label for="ap-waste-qty">Waste Quantity (kg) <span class="text-danger">*</span></label>
+                          <input type="number" id="ap-waste-qty" class="form-control" value="85" step="0.1" required>
+                        </div>
+                      </div>
+
+                      <div class="live-calc-box" id="ap-live-calc-box">
+                        <span class="calc-title"><i class="fa-solid fa-calculator text-cyan"></i> Observed Waste:</span>
+                        <span class="calc-value" id="ap-computed-waste-display">8.95% (85.0 kg / 950 kg)</span>
+                      </div>
+
+                      <div class="form-row mt-3">
+                        <div class="form-group col-6">
+                          <label for="ap-speed">Production Speed (rpm)</label>
+                          <input type="number" id="ap-speed" class="form-control" value="710" step="10" required>
+                        </div>
+                        <div class="form-group col-6">
+                          <label for="ap-maint-date">Last Maintenance Date</label>
+                          <input type="date" id="ap-maint-date" class="form-control" required>
+                        </div>
+                      </div>
+
+                      <div class="form-row">
+                        <div class="form-group col-4">
+                          <label for="ap-machine-age">Machine Age (Yrs)</label>
+                          <input type="number" id="ap-machine-age" class="form-control" value="6.2" step="0.1" required>
+                        </div>
+                        <div class="form-group col-4">
+                          <label for="ap-humidity">Humidity (% RH)</label>
+                          <input type="number" id="ap-humidity" class="form-control" value="50" step="0.5">
+                        </div>
+                        <div class="form-group col-4">
+                          <label for="ap-temperature">Temperature (°C)</label>
+                          <input type="number" id="ap-temperature" class="form-control" value="26.5" step="0.5" required>
+                        </div>
+                      </div>
+
+                      <div class="form-actions mt-4">
+                        <button type="submit" class="btn btn-primary btn-block" id="btn-run-after-prediction">
+                          <i class="fa-solid fa-brain-circuit"></i>
+                          <span>Assess Risk & Initialize After-Prediction Sandbox</span>
+                        </button>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+
+                <!-- INITIAL BATCH RISK SCORECARD -->
+                <div class="card card-glass" id="ap-initial-risk-card">
+                  <div class="card-header">
+                    <div>
+                      <h4 class="card-title text-sm"><i class="fa-solid fa-gauge-high text-yellow"></i> Initial Batch Risk Assessment</h4>
+                      <p class="card-subtitle text-xs">Evaluated against factory baseline & multi-factor machine thresholds</p>
+                    </div>
+                    <div class="badge badge-danger" id="ap-initial-risk-badge">HIGH RISK</div>
+                  </div>
+                  <div class="card-body">
+                    <div class="grid-3-col gap-2 mb-3">
+                      <div class="metric-stat-box p-2">
+                        <span class="stat-label text-xs">Initial Waste %</span>
+                        <div class="font-bold text-danger" id="ap-init-waste-pct" style="font-size: 1.3rem;">8.95%</div>
+                        <span class="text-xs text-muted" id="ap-init-waste-kg">85.0 kg</span>
+                      </div>
+                      <div class="metric-stat-box p-2">
+                        <span class="stat-label text-xs">Risk Score</span>
+                        <div class="font-bold text-danger" id="ap-init-risk-score" style="font-size: 1.3rem;">78/100</div>
+                        <span class="text-xs text-danger" id="ap-init-anomaly-tag">Abnormal Deviation</span>
+                      </div>
+                      <div class="metric-stat-box p-2">
+                        <span class="stat-label text-xs">Primary Driver</span>
+                        <div class="font-bold text-warning text-xs mt-1" id="ap-init-primary-driver">Overdue Maintenance</div>
+                        <span class="text-xs text-muted">95 days since service</span>
                       </div>
                     </div>
-                  </div>
 
-                  <div class="classification-details">
-                    <div class="flex-between">
-                      <span class="res-label">Risk Classification</span>
-                      <span class="badge badge-subtle" id="res-batch-id-tag">Batch: --</span>
-                    </div>
-                    <div class="risk-badge-large badge-normal" id="res-risk-badge">
-                      <i class="fa-solid fa-circle-check"></i>
-                      <span id="res-risk-text">NORMAL</span>
-                    </div>
-
-                    <div class="mt-3">
-                      <div class="sub-metric">
-                        <span class="sub-label">Waste Percentage:</span>
-                        <span class="sub-val text-normal font-bold" id="res-waste-pct">0.00%</span>
+                    <div class="p-2 card-glass" style="border-radius: var(--radius-sm);">
+                      <div class="flex-between text-xs">
+                        <span class="text-muted">Diagnostic Explanation:</span>
+                        <span class="badge badge-subtle" id="ap-init-confidence">95% Conf.</span>
                       </div>
-                      <div class="sub-metric mt-1">
-                        <span class="sub-label">Abnormal Anomaly:</span>
-                        <span class="sub-val" id="res-is-abnormal">No (Within Range)</span>
-                      </div>
+                      <p class="text-xs text-main mt-1" id="ap-init-explanation">
+                        Machine M02 has operated 95 days without calibration, increasing friction and thread breaks.
+                      </p>
                     </div>
                   </div>
-                </div>
-
-                <!-- 2. WHY IS THIS BATCH AT RISK? (Evidence-Based Reason Cards) -->
-                <div class="explainability-block mt-4" id="panel-why-at-risk">
-                  <div class="section-title-wrap">
-                    <h4 class="section-heading text-danger">
-                      <i class="fa-solid fa-circle-question"></i> WHY IS THIS BATCH AT RISK?
-                    </h4>
-                    <p class="section-subtext">Evidence-based reasons comparing observed telemetry with historical baselines</p>
-                  </div>
-                  <div class="reason-cards-grid" id="res-reason-cards-container">
-                    <div class="empty-state-notice">Run prediction to view evidence-based reason cards.</div>
-                  </div>
-                </div>
-
-                <!-- 3. HOW CAN THE WASTE BE PREVENTED? (Reason -> Solution Cards) -->
-                <div class="explainability-block mt-4" id="panel-how-to-prevent">
-                  <div class="section-title-wrap">
-                    <h4 class="section-heading text-cyan">
-                      <i class="fa-solid fa-shield-halved"></i> HOW CAN THE WASTE BE PREVENTED?
-                    </h4>
-                    <p class="section-subtext">Direct Reason → Solution practical remedies to prevent or reduce material loss</p>
-                  </div>
-                  <div class="solution-cards-grid" id="res-preventive-solutions-container">
-                    <div class="empty-state-notice">Run prediction to view preventive remedies.</div>
-                  </div>
-                </div>
-
-                <!-- 4. RECOMMENDED ACTION (Inspect -> Adjust -> Maintain -> Monitor) -->
-                <div class="explainability-block mt-4" id="panel-recommended-actions">
-                  <div class="section-title-wrap flex-between">
-                    <h4 class="section-heading text-green">
-                      <i class="fa-solid fa-list-check"></i> RECOMMENDED ACTIONS
-                    </h4>
-                    <span class="protocol-pill">Inspect → Adjust → Maintain → Monitor</span>
-                  </div>
-                  <div class="risk-action-box" id="res-action-box">
-                    <p class="risk-action-summary" id="res-action-summary">Production conditions are within the expected range. Continue monitoring waste percentage.</p>
-                    <ol class="action-steps-checklist" id="res-action-steps-list">
-                      <li>Continue production according to standard operational schedule.</li>
-                      <li>Monitor machine performance and real-time tension sensors.</li>
-                      <li>Maintain normal scheduled preventive maintenance timeline.</li>
-                    </ol>
-                  </div>
-                </div>
-
-                <!-- 5. RISK FACTOR BREAKDOWN BARS -->
-                <div class="factor-breakdown-section mt-4">
-                  <h4 class="section-heading"><i class="fa-solid fa-chart-column text-muted"></i> Multi-Factor Risk Breakdown</h4>
-                  
-                  <div class="factor-bar-item">
-                    <div class="factor-info">
-                      <span>Waste Deviation vs Baseline</span>
-                      <span id="factor-waste-val">0%</span>
-                    </div>
-                    <div class="progress-track"><div class="progress-fill" id="bar-factor-waste" style="width: 0%;"></div></div>
-                  </div>
-
-                  <div class="factor-bar-item mt-2">
-                    <div class="factor-info">
-                      <span>Maintenance Overdue Friction</span>
-                      <span id="factor-maint-val">0%</span>
-                    </div>
-                    <div class="progress-track"><div class="progress-fill" id="bar-factor-maint" style="width: 0%;"></div></div>
-                  </div>
-
-                  <div class="factor-bar-item mt-2">
-                    <div class="factor-info">
-                      <span>Production Speed Stress</span>
-                      <span id="factor-speed-val">0%</span>
-                    </div>
-                    <div class="progress-track"><div class="progress-fill" id="bar-factor-speed" style="width: 0%;"></div></div>
-                  </div>
-
-                  <div class="factor-bar-item mt-2">
-                    <div class="factor-info">
-                      <span>Environmental / Machine Age</span>
-                      <span id="factor-env-val">0%</span>
-                    </div>
-                    <div class="progress-track"><div class="progress-fill" id="bar-factor-env" style="width: 0%;"></div></div>
-                  </div>
-                </div>
-
-                <!-- ROOT-CAUSE AI PRIMARY CAUSE CALLOUT IN PREDICTOR -->
-                <div class="rca-pred-callout mt-4 p-3 card-glass hidden" id="pred-rca-container">
-                  <div class="flex-between">
-                    <span class="badge badge-danger" id="pred-rca-badge">ROOT CAUSE IDENTIFIED</span>
-                    <span class="text-xs font-accent" id="pred-rca-pct">--% Attribution</span>
-                  </div>
-                  <h5 class="mt-2 font-bold text-yellow" id="pred-rca-title">Primary Driver</h5>
-                  <p class="text-xs text-muted mt-1" id="pred-rca-explanation">Diagnostic explanation...</p>
-                  <button type="button" class="btn btn-sm btn-outline-cyan mt-2 w-100" id="btn-pred-to-rca">
-                    <i class="fa-solid fa-brain-circuit"></i> Deep-Dive in Root-Cause Studio
-                  </button>
-                </div>
-
-                <div class="mt-4 pt-2 border-top prediction-action-buttons">
-                  <button class="btn btn-secondary flex-1" id="btn-save-predicted-batch">
-                    <i class="fa-solid fa-floppy-disk"></i>
-                    <span>Save to Database</span>
-                  </button>
-                  <button class="btn btn-primary flex-1 btn-report-glow" id="btn-open-batch-report">
-                    <i class="fa-solid fa-file-contract"></i>
-                    <span>Generate Finalized Report</span>
-                  </button>
                 </div>
 
               </div>
+
+              <!-- RIGHT COLUMN: INTERACTIVE "AFTER PREDICTION" SIMULATOR & PLAYBOOK -->
+              <div class="flex-column gap-4">
+                
+                <!-- AFTER PREDICTION COUNTERFACTUAL STUDIO -->
+                <div class="card card-glass border-cyan">
+                  <div class="card-header after-pred-card-header">
+                    <div>
+                      <h3 class="card-title text-cyan"><i class="fa-solid fa-wand-magic-sparkles"></i> After-Prediction Optimization Studio</h3>
+                      <p class="card-subtitle">Simulate how adjusting speed, humidity, maintenance, and temperature mitigates risk and reduces waste:</p>
+                    </div>
+                    <div class="flex-center gap-1">
+                      <button class="btn btn-xs btn-outline-cyan" id="btn-ap-auto-tune" title="Auto-tune sliders to AI safe operating baseline">
+                        <i class="fa-solid fa-wand-magic-sparkles"></i> Auto-Tune Safe Levers
+                      </button>
+                      <button class="btn btn-xs btn-secondary" id="btn-ap-reset-sliders" title="Reset sliders to batch inputs">
+                        <i class="fa-solid fa-rotate-left"></i> Reset
+                      </button>
+                    </div>
+                  </div>
+                  
+                  <div class="card-body">
+                    
+                    <!-- REAL-TIME SLIDERS GRID -->
+                    <div class="simulator-sliders-grid">
+                      
+                      <!-- Speed Slider -->
+                      <div class="sim-slider-item">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-gauge-high text-cyan"></i> Production Speed</span>
+                          <span class="slider-val text-cyan font-bold" id="lbl-ap-speed">710 RPM</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-ap-speed" min="400" max="1200" step="10" value="710">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>400 RPM</span><span id="lbl-ap-safe-speed">Safe: ~700 RPM</span><span>1200 RPM</span></div>
+                      </div>
+
+                      <!-- Humidity Slider -->
+                      <div class="sim-slider-item mt-3">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-droplet text-blue"></i> Relative Humidity</span>
+                          <span class="slider-val text-blue font-bold" id="lbl-ap-humidity">50% RH</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-ap-humidity" min="20" max="90" step="1" value="50">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>20% (Dry)</span><span>Optimal: 55-65%</span><span>90% (Wet)</span></div>
+                      </div>
+
+                      <!-- Maintenance Age Slider -->
+                      <div class="sim-slider-item mt-3">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-wrench text-yellow"></i> Days Since Maintenance</span>
+                          <span class="slider-val text-yellow font-bold" id="lbl-ap-maint">95 Days</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-ap-maint" min="0" max="150" step="1" value="95">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>0 (Serviced)</span><span>Limit: 60d</span><span>150d (Overdue)</span></div>
+                      </div>
+
+                      <!-- Temperature Slider -->
+                      <div class="sim-slider-item mt-3">
+                        <div class="flex-between text-xs mb-1">
+                          <span class="slider-label"><i class="fa-solid fa-temperature-half text-red"></i> Ambient Temperature</span>
+                          <span class="slider-val text-red font-bold" id="lbl-ap-temp">26.5°C</span>
+                        </div>
+                        <input type="range" class="sim-range" id="slider-ap-temp" min="15" max="40" step="0.5" value="26.5">
+                        <div class="slider-bounds flex-between text-xs text-muted"><span>15°C</span><span>Target: 22-26°C</span><span>40°C</span></div>
+                      </div>
+
+                    </div>
+
+                    <!-- BEFORE VS AFTER PREDICTION SCORECARD -->
+                    <div class="before-after-container mt-4">
+                      
+                      <!-- BEFORE COLUMN -->
+                      <div class="comparison-column before-col">
+                        <div class="flex-between">
+                          <span class="comparison-tag text-muted"><i class="fa-solid fa-circle text-danger text-xs"></i> BEFORE PREDICTION</span>
+                          <span class="badge badge-danger text-xs" id="ap-before-risk-tag">HIGH RISK</span>
+                        </div>
+                        <div>
+                          <div class="text-xs text-muted">Initial Waste Rate:</div>
+                          <div class="comparison-hero-stat text-danger font-accent" id="ap-before-waste-val">8.95%</div>
+                        </div>
+                        <div class="flex-between text-xs pt-1 border-top">
+                          <span class="text-muted">Initial Risk Score:</span>
+                          <span class="font-bold text-danger" id="ap-before-score-val">78 / 100</span>
+                        </div>
+                        <div class="flex-between text-xs">
+                          <span class="text-muted">Initial Total Waste:</span>
+                          <span class="font-bold" id="ap-before-waste-kg-val">85.0 kg</span>
+                        </div>
+                      </div>
+
+                      <!-- AFTER COLUMN -->
+                      <div class="comparison-column after-col">
+                        <div class="flex-between">
+                          <span class="comparison-tag text-cyan"><i class="fa-solid fa-sparkles text-cyan text-xs"></i> AFTER PREDICTION</span>
+                          <span class="badge badge-normal text-xs" id="ap-after-risk-tag">NORMAL</span>
+                        </div>
+                        <div>
+                          <div class="text-xs text-muted">Simulated Waste Rate:</div>
+                          <div class="flex-center gap-2">
+                            <div class="comparison-hero-stat text-normal font-accent" id="ap-after-waste-val">3.80%</div>
+                            <span class="delta-badge delta-improved" id="ap-delta-waste-badge">-5.15%</span>
+                          </div>
+                        </div>
+                        <div class="flex-between text-xs pt-1 border-top">
+                          <span class="text-muted">Simulated Risk Score:</span>
+                          <div class="flex-center gap-1">
+                            <span class="font-bold text-normal" id="ap-after-score-val">22 / 100</span>
+                            <span class="delta-badge delta-improved" id="ap-delta-score-badge">-56 pts</span>
+                          </div>
+                        </div>
+                        <div class="flex-between text-xs">
+                          <span class="text-muted">Simulated Waste:</span>
+                          <span class="font-bold text-normal" id="ap-after-waste-kg-val">36.1 kg</span>
+                        </div>
+                      </div>
+
+                    </div>
+
+                    <!-- SAVINGS HIGHLIGHT -->
+                    <div class="savings-highlight-box mt-3">
+                      <div>
+                        <div class="savings-title"><i class="fa-solid fa-piggy-bank"></i> Estimated Waste Saved Per Batch:</div>
+                        <div class="text-xs text-muted mt-1">Material recovery through counterfactual parameter optimization</div>
+                      </div>
+                      <div class="text-right">
+                        <div class="savings-amount" id="ap-saved-kg-display">+48.9 kg</div>
+                        <span class="text-xs font-bold text-normal" id="ap-saved-pct-display">57.5% reduction</span>
+                      </div>
+                    </div>
+
+                    <!-- PRESCRIPTIVE AFTER-PREDICTION ACTION PLAYBOOK -->
+                    <div class="explainability-block mt-4">
+                      <div class="section-title-wrap flex-between">
+                        <h4 class="section-heading text-green">
+                          <i class="fa-solid fa-list-check"></i> PRESCRIPTIVE AFTER-PREDICTION ACTION PLAYBOOK
+                        </h4>
+                        <span class="protocol-pill">Validated Parameter Adjustments</span>
+                      </div>
+                      <ol class="action-steps-checklist mt-2" id="ap-prescriptive-steps-list">
+                        <li>Perform scheduled lubrication and recalibrate reed alignment for Loom M02 to reset maintenance age.</li>
+                        <li>Maintain production speed at or below 700 RPM for Wool fabric.</li>
+                        <li>Humidify Loom Bay 2 to reach optimal 55% RH to prevent yarn snapping.</li>
+                      </ol>
+                    </div>
+
+                    <!-- AFTER-PREDICTION ACTION BUTTONS -->
+                    <div class="mt-4 pt-2 border-top prediction-action-buttons">
+                      <button type="button" class="btn btn-outline-cyan flex-1" id="btn-ap-apply-to-form">
+                        <i class="fa-solid fa-check-double"></i>
+                        <span>Apply Tuned Levers to Form</span>
+                      </button>
+                      <button type="button" class="btn btn-secondary flex-1" id="btn-ap-save-batch">
+                        <i class="fa-solid fa-floppy-disk"></i>
+                        <span>Save to Database</span>
+                      </button>
+                      <button type="button" class="btn btn-primary flex-1 btn-report-glow" id="btn-ap-open-report">
+                        <i class="fa-solid fa-file-contract"></i>
+                        <span>Generate Audit Report</span>
+                      </button>
+                    </div>
+
+                  </div>
+                </div>
+
+              </div>
+
             </div>
 
           </div>
@@ -1669,8 +2153,13 @@
                 </div>
 
                 <div class="sample-csv-guide mt-4">
-                  <h5>Supported File Headers:</h5>
-                  <code>Batch ID, Machine ID, Fabric Type, Operator, Shift, Total Production Quantity, Production Speed, Waste Quantity, Machine Age, Last Maintenance Date, Humidity, Temperature</code>
+                  <div class="flex-between">
+                    <h5>Supported File Headers:</h5>
+                    <button type="button" class="btn btn-sm btn-outline-cyan" id="btn-download-sample-csv">
+                      <i class="fa-solid fa-file-csv"></i> Download Sample CSV Template
+                    </button>
+                  </div>
+                  <code class="mt-2 block">Batch ID, Machine ID, Fabric Type, Operator, Shift, Total Production Quantity, Production Speed, Waste Quantity, Machine Age, Last Maintenance Date, Humidity, Temperature</code>
                 </div>
 
               </div>

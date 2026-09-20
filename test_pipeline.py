@@ -15,6 +15,7 @@ Verifies:
 
 import sys
 import os
+import io
 import pandas as pd
 from datetime import date, timedelta
 
@@ -421,8 +422,167 @@ def run_all_tests():
     print(f"  Preventive Remedy: {top_cause['preventive_action']}")
     print("  [PASS] Waste causes and prevention summary aggregator validated.")
 
+    # ----------------------------------------------------
+    # TEST 22: Continuous Regression Model Training & Metrics
+    # ----------------------------------------------------
+    print("\n[TEST 22] Verifying Continuous Regression Model Training & Evaluation Metrics...")
+    metrics = ml_engine.regression_metrics
+    print(f"  Regressor Metrics: MAE={metrics.get('mae')}, RMSE={metrics.get('rmse')}, R2={metrics.get('r2')}, Samples={metrics.get('sample_count')}")
+    assert ml_engine.regressor is not None, "Regression model is None"
+    assert "mae" in metrics and "rmse" in metrics and "r2" in metrics, "Missing regression metrics"
+    print("  [PASS] Continuous RandomForestRegressor trained with valid MAE, RMSE, and R2 metrics.")
+
+    # ----------------------------------------------------
+    # TEST 23: Pre-Production Expected Waste Forecast (No actual waste required)
+    # ----------------------------------------------------
+    print("\n[TEST 23] Verifying Pre-Production Expected Waste Forecast (KG & Good Production)...")
+    pre_prod_batch = {
+        "batch_id": "T23-EXP-PREPROD",
+        "machine_id": "M03",
+        "fabric_type": "Cotton",
+        "shift": "Night",
+        "operator": "Marcus Vance",
+        "total_production": 1000.0,
+        "production_speed": 880.0,
+        "machine_age": 8.0,
+        "last_maintenance_date": (today - timedelta(days=200)).strftime("%Y-%m-%d"),
+        "humidity": 75.0,
+        "temperature": 34.0
+    }
+    clean_23 = validate_and_clean_batch(pre_prod_batch)
+    exp_23 = ml_engine.predict_expected_waste(clean_23)
+    
+    assert exp_23["is_valid"] is True
+    assert exp_23["expected_waste_percentage"] is not None
+    assert exp_23["expected_waste_kg"] is not None
+    assert exp_23["expected_good_production_kg"] is not None
+    
+    # Formula check: Expected Waste (kg) = Production Quantity * Expected Waste % / 100
+    expected_calc_kg = round(1000.0 * (exp_23["expected_waste_percentage"] / 100.0), 2)
+    assert abs(exp_23["expected_waste_kg"] - expected_calc_kg) < 0.05, f"Expected {expected_calc_kg}, got {exp_23['expected_waste_kg']}"
+    
+    # Formula check: Expected Good Production = Total Production - Expected Waste
+    good_calc_kg = round(1000.0 - exp_23["expected_waste_kg"], 2)
+    assert abs(exp_23["expected_good_production_kg"] - good_calc_kg) < 0.05, f"Expected {good_calc_kg}, got {exp_23['expected_good_production_kg']}"
+    
+    print(f"  Expected Waste %: {exp_23['expected_waste_percentage']:.2f}%")
+    print(f"  Expected Waste: {exp_23['expected_waste_kg']:.1f} kg")
+    print(f"  Expected Good Production: {exp_23['expected_good_production_kg']:.1f} kg")
+    print(f"  Risk Level: {exp_23['risk_level']}")
+    print("  [PASS] Expected waste and good production formulas validated strictly.")
+
+    # ----------------------------------------------------
+    # TEST 24: Prediction Uncertainty Range (Likely Range % and kg)
+    # ----------------------------------------------------
+    print("\n[TEST 24] Verifying Prediction Uncertainty Range (Likely Range % and kg)...")
+    pct_range = exp_23["likely_range_pct"]
+    kg_range = exp_23["likely_range_kg"]
+    assert pct_range["min"] < exp_23["expected_waste_percentage"] <= pct_range["max"]
+    assert kg_range["min"] < exp_23["expected_waste_kg"] <= kg_range["max"]
+    print(f"  Likely Range %: {pct_range['display']}")
+    print(f"  Likely Range kg: {kg_range['display']}")
+    print("  [PASS] Prediction uncertainty ranges estimated and formatted properly.")
+
+    # ----------------------------------------------------
+    # TEST 25: Multi-Level Historical Comparison Matrix
+    # ----------------------------------------------------
+    print("\n[TEST 25] Verifying Multi-Level Historical Comparison Matrix...")
+    comp_25 = exp_23["historical_comparison"]
+    assert "factory_average_pct" in comp_25
+    assert "machine_average_pct" in comp_25
+    assert "fabric_average_pct" in comp_25
+    assert "machine_fabric_combination_avg_pct" in comp_25
+    assert "shift_average_pct" in comp_25
+    assert "comparison_summary" in comp_25
+    print(f"  Comparison Summary: {comp_25['comparison_summary']}")
+    print(f"  Factory Avg: {comp_25['factory_average_pct']}%, Machine Avg: {comp_25['machine_average_pct']}%, Fabric Avg: {comp_25['fabric_average_pct']}%, Combo: {comp_25['machine_fabric_combination_avg_pct']}%, Shift: {comp_25['shift_average_pct']}%")
+    print("  [PASS] Multi-level historical comparison matrix validated.")
+
+    # ----------------------------------------------------
+    # TEST 26: Expected vs Actual Waste Comparison (Completed batch)
+    # ----------------------------------------------------
+    print("\n[TEST 26] Verifying Expected vs Actual Waste Comparison...")
+    completed_batch = dict(pre_prod_batch)
+    completed_batch["waste_quantity"] = 82.0  # Actual waste entered
+    clean_26 = validate_and_clean_batch(completed_batch)
+    exp_26 = ml_engine.predict_expected_waste(clean_26)
+    eva = exp_26["expected_vs_actual"]
+    assert eva is not None, "Expected vs actual dictionary is None"
+    assert eva["actual_waste_kg"] == 82.0
+    assert abs(eva["difference_kg"] - (82.0 - exp_26["expected_waste_kg"])) < 0.05
+    assert abs(eva["absolute_error_kg"] - abs(82.0 - exp_26["expected_waste_kg"])) < 0.05
+    assert 0.0 <= eva["prediction_accuracy_pct"] <= 100.0
+    print(f"  Expected: {eva['expected_waste_kg']} kg ({eva['expected_waste_pct']}%)")
+    print(f"  Actual: {eva['actual_waste_kg']} kg ({eva['actual_waste_pct']}%)")
+    print(f"  Difference: {eva['difference_sign']} | Abs Error: {eva['absolute_error_kg']} kg | Accuracy: {eva['prediction_accuracy_pct']}%")
+    print("  [PASS] Expected vs Actual comparison metrics validated.")
+
+    # ----------------------------------------------------
+    # TEST 27: Edge Cases (Zero Production, Missing Humidity, New Machine)
+    # ----------------------------------------------------
+    print("\n[TEST 27] Verifying Expected Waste Edge Cases...")
+    # Zero production
+    zero_batch = dict(pre_prod_batch)
+    zero_batch["total_production"] = 0.0
+    clean_zero = validate_and_clean_batch(zero_batch)
+    exp_zero = ml_engine.predict_expected_waste(clean_zero)
+    assert exp_zero["is_valid"] is False
+    assert exp_zero["validation_error"] == "Production quantity must be greater than 0 kg."
+    assert exp_zero["expected_waste_kg"] is None
+    print("  [PASS] Zero production guard returned: 'Production quantity must be greater than 0 kg.' without division error.")
+
+    # Missing humidity
+    missing_hum_batch = dict(pre_prod_batch)
+    missing_hum_batch["humidity"] = None
+    clean_hum = validate_and_clean_batch(missing_hum_batch)
+    exp_hum = ml_engine.predict_expected_waste(clean_hum)
+    assert any("Humidity unavailable" in r for r in exp_hum["reasons"])
+    print("  [PASS] Missing humidity reported: 'Humidity unavailable. Prediction is based on the remaining available parameters.'")
+
+    # New Machine
+    new_m_batch = dict(pre_prod_batch)
+    new_m_batch["machine_id"] = "M99_NEW"
+    clean_new_m = validate_and_clean_batch(new_m_batch)
+    exp_new_m = ml_engine.predict_expected_waste(clean_new_m)
+    assert exp_new_m["is_new_machine"] is True
+    assert any("Limited historical data available" in r for r in exp_new_m["reasons"])
+    print("  [PASS] New machine fallback reported: 'Limited historical data available for this machine. Prediction is based on similar machines and overall historical patterns.'")
+
+    # ----------------------------------------------------
+    # TEST 28: CSV / Excel Upload Validation & Ingestion
+    # ----------------------------------------------------
+    print("\n[TEST 28] Verifying CSV / Excel File Upload & Ingestion Pipeline...")
+    from backend.database import save_batches_bulk
+
+    csv_data = """Batch ID,Machine ID,Fabric Type,Operator,Shift,Total Production Quantity,Production Speed,Waste Quantity,Machine Age,Last Maintenance Date,Humidity,Temperature
+BATCH-UP-01,M01,Cotton,David Kim,Morning,1000,820,40,4.0,2026-06-01,55,24
+BATCH-UP-02,M02,Silk,Priya Sharma,Night,800,920,,6.0,2026-04-01,,30
+BATCH-UP-03,M03,Denim,Carlos Rossi,Afternoon,0,750,0,2.0,2026-07-01,60,25
+"""
+    df_up = pd.read_csv(io.StringIO(csv_data))
+    col_mapping = {col: str(col).strip().lower().replace(" ", "_").replace("-", "_") for col in df_up.columns}
+    df_up = df_up.rename(columns=col_mapping)
+    raw_recs = df_up.to_dict(orient="records")
+    cleaned_recs, val_summary = validate_batch_collection(raw_recs)
+    
+    assert val_summary["total_records"] == 3
+    assert val_summary["valid_records"] == 2
+    assert val_summary["zero_or_negative_production_count"] == 1
+    assert val_summary["imputed_humidity_count"] == 1
+
+    proc_list = []
+    for item in cleaned_recs:
+        pred_item = ml_engine.predict_batch(item, settings)
+        item.update(pred_item)
+        proc_list.append(item)
+
+    saved_up = save_batches_bulk(proc_list, duplicate_strategy="keep_latest")
+    assert saved_up == 3
+    print(f"  Validation Summary: Total={val_summary['total_records']}, Valid={val_summary['valid_records']}, Missing Hum={val_summary['imputed_humidity_count']}, Zero Prod={val_summary['zero_or_negative_production_count']}")
+    print(f"  [PASS] CSV file parsing, batch validation, predictive scoring, and database ingestion passed successfully.")
+
     print("\n" + "=" * 70)
-    print("ALL 19 TESTS (UNIT, ML, RCA, AND REASON-SOLUTION ENGINE) PASSED!")
+    print("ALL 28 TESTS (DATA VALIDATION, ML, EXPECTED WASTE, RCA, REASONS, CSV UPLOAD) PASSED!")
     print("=" * 70)
 
 

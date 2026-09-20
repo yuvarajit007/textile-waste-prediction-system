@@ -74,15 +74,16 @@ class RootCauseAIEngine:
         f_type = str(batch.get("fabric_type", "Cotton"))
         shift = str(batch.get("shift", "Morning"))
         operator = str(batch.get("operator", "Operator A"))
-        total_prod = float(batch.get("total_production", 1000.0))
-        waste_qty = float(batch.get("waste_quantity", 0.0))
-        waste_pct = float(batch.get("waste_percentage", 0.0))
-        speed = float(batch.get("production_speed", 800.0))
-        maint_age = int(batch.get("maintenance_age_days", 30))
-        machine_age = float(batch.get("machine_age", 3.0))
-        humidity = float(batch.get("humidity", 55.0))
+        total_prod = float(batch.get("total_production") or 0.0)
+        waste_qty = float(batch.get("waste_quantity") if batch.get("waste_quantity") is not None else (batch.get("expected_waste_kg") or 0.0))
+        raw_waste_pct = batch.get("waste_percentage")
+        waste_pct = float(raw_waste_pct) if raw_waste_pct is not None else float(batch.get("expected_waste_percentage") or 0.0)
+        speed = float(batch.get("production_speed") if batch.get("production_speed") is not None else 800.0)
+        maint_age = int(batch.get("maintenance_age_days") if batch.get("maintenance_age_days") is not None else 30)
+        machine_age = float(batch.get("machine_age") if batch.get("machine_age") is not None else 3.0)
+        humidity = float(batch.get("humidity") if batch.get("humidity") is not None else 55.0)
         humidity_imputed = bool(batch.get("humidity_imputed", False))
-        temperature = float(batch.get("temperature", 25.0))
+        temperature = float(batch.get("temperature") if batch.get("temperature") is not None else 25.0)
         is_valid = bool(batch.get("is_valid", True))
 
         # ----------------------------------------------------
@@ -559,12 +560,13 @@ class RootCauseAIEngine:
         # 2. WEIGHTING & MULTI-FACTOR ATTRIBUTION DECOMPOSITION
         # ----------------------------------------------------
         weighted_points = {
-            "mechanical_maintenance": raw_maint_impact * 0.35,
-            "operational_speed": raw_speed_impact * 0.30,
-            "atmospheric_humidity": raw_humidity_impact * 0.15,
-            "fabric_sensitivity": raw_fabric_impact * 0.08,
-            "thermal_environment": raw_temp_impact * 0.06,
-            "shift_operator": (raw_shift_impact + raw_operator_impact) * 0.06
+            "waste_deviation": raw_waste_impact * 0.35,
+            "mechanical_maintenance": raw_maint_impact * 0.25,
+            "operational_speed": raw_speed_impact * 0.20,
+            "atmospheric_humidity": raw_humidity_impact * 0.08,
+            "fabric_sensitivity": raw_fabric_impact * 0.05,
+            "thermal_environment": raw_temp_impact * 0.04,
+            "shift_operator": (raw_shift_impact + raw_operator_impact) * 0.03
         }
 
         total_weighted_points = sum(weighted_points.values())
@@ -579,8 +581,12 @@ class RootCauseAIEngine:
             calculated_risk_level = "NORMAL"
 
         # Final risk level overrides from batch if already assigned by ML
-        final_risk_level = str(batch.get("risk_level", calculated_risk_level))
-        final_risk_score = float(batch.get("risk_score", total_risk_score))
+        if "risk_level" in batch and str(batch["risk_level"]) in ["NORMAL", "WARNING", "HIGH RISK"]:
+            final_risk_level = str(batch["risk_level"])
+            final_risk_score = float(batch.get("risk_score", total_risk_score))
+        else:
+            final_risk_level = calculated_risk_level
+            final_risk_score = total_risk_score
 
         # Attribution percentages
         if total_weighted_points > 0:
@@ -589,7 +595,7 @@ class RootCauseAIEngine:
                 for k, v in weighted_points.items()
             }
         else:
-            attribution_pcts = {k: 16.7 for k in weighted_points.keys()}
+            attribution_pcts = {k: 14.3 for k in weighted_points.keys()}
 
         # ----------------------------------------------------
         # 3. PRIMARY & SECONDARY ROOT CAUSE IDENTIFICATION
@@ -922,14 +928,15 @@ class RootCauseAIEngine:
 
         m_id = str(sim_batch.get("machine_id", "M01"))
         f_type = str(sim_batch.get("fabric_type", "Cotton"))
-        total_prod = float(sim_batch.get("total_production", 1000.0))
-        orig_waste_pct = float(batch.get("waste_percentage", 4.0))
+        total_prod = float(sim_batch.get("total_production") or 1000.0)
+        raw_waste_pct = batch.get("waste_percentage")
+        orig_waste_pct = float(raw_waste_pct) if raw_waste_pct is not None else float(batch.get("expected_waste_percentage") or 4.0)
 
-        speed = float(sim_batch.get("production_speed", 800.0))
-        maint_age = int(sim_batch.get("maintenance_age_days", 30))
-        machine_age = float(sim_batch.get("machine_age", 3.0))
-        humidity = float(sim_batch.get("humidity", 55.0))
-        temperature = float(sim_batch.get("temperature", 25.0))
+        speed = float(sim_batch.get("production_speed") if sim_batch.get("production_speed") is not None else 800.0)
+        maint_age = int(sim_batch.get("maintenance_age_days") if sim_batch.get("maintenance_age_days") is not None else 30)
+        machine_age = float(sim_batch.get("machine_age") if sim_batch.get("machine_age") is not None else 3.0)
+        humidity = float(sim_batch.get("humidity") if sim_batch.get("humidity") is not None else 55.0)
+        temperature = float(sim_batch.get("temperature") if sim_batch.get("temperature") is not None else 25.0)
 
         f_thresh = baseline_analyzer.get_fabric_thresholds(f_type)
         m_thresh = baseline_analyzer.get_machine_thresholds(m_id)
@@ -1101,8 +1108,9 @@ class RootCauseAIEngine:
             hum = float(b.get("humidity", 55.0))
             hum_imp = bool(b.get("humidity_imputed", False))
             temp = float(b.get("temperature", 25.0))
-            m_age = float(b.get("machine_age", 3.0))
-            waste_pct = float(b.get("waste_percentage", 4.0))
+            m_age = float(b.get("machine_age") or 3.0)
+            raw_wp = b.get("waste_percentage")
+            waste_pct = float(raw_wp) if raw_wp is not None and not pd.isna(raw_wp) else float(b.get("expected_waste_percentage") or 4.0)
             risk_level = str(b.get("risk_level", "NORMAL"))
 
             # Speed

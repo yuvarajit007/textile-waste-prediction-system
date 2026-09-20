@@ -136,6 +136,85 @@ class BaselineAnalyzer:
                 "machines_operated": list(op_df["machine_id"].unique()) if "machine_id" in op_df else []
             }
 
+        # 6. Machine + Fabric combination baselines
+        self.machine_fabric_stats = {}
+        for (m_id, f_type), mf_df in df.groupby(["machine_id", "fabric_type"]):
+            mf_waste = mf_df["waste_percentage"].values
+            self.machine_fabric_stats[f"{m_id}_{f_type}"] = {
+                "machine_id": m_id,
+                "fabric_type": f_type,
+                "batch_count": len(mf_df),
+                "mean_waste_pct": float(np.mean(mf_waste)),
+                "std_waste_pct": float(np.std(mf_waste)) if len(mf_waste) > 1 else 1.0,
+                "mean_speed": float(mf_df["production_speed"].mean()) if "production_speed" in mf_df else 800.0
+            }
+
+    def get_historical_comparison(
+        self,
+        machine_id: str,
+        fabric_type: str,
+        shift: str = "Morning",
+        expected_waste_pct: float = 0.0
+    ) -> Dict[str, Any]:
+        """
+        Compares the expected waste percentage against overall factory baseline,
+        machine-specific average, fabric-specific average, machine+fabric combination, and shift average.
+        Returns detailed comparisons and a clear comparative statement.
+        """
+        factory_avg = self.factory_stats.get("mean_waste_pct", 4.0)
+        
+        m_stats = self.machine_stats.get(machine_id, {})
+        machine_avg = m_stats.get("mean_waste_pct", factory_avg)
+        
+        f_stats = self.fabric_stats.get(fabric_type, {})
+        fabric_avg = f_stats.get("mean_waste_pct", factory_avg)
+        
+        mf_key = f"{machine_id}_{fabric_type}"
+        mf_stats = self.machine_fabric_stats.get(mf_key, {})
+        mf_avg = mf_stats.get("mean_waste_pct", round((machine_avg + fabric_avg) / 2.0, 2))
+        
+        s_stats = self.shift_stats.get(shift, {})
+        shift_avg = s_stats.get("mean_waste_pct", factory_avg)
+        
+        # Build synthesis statement
+        higher_than = []
+        lower_than = []
+        
+        if expected_waste_pct > machine_avg * 1.08:
+            higher_than.append(f"Machine {machine_id} average ({machine_avg:.1f}%)")
+        elif expected_waste_pct < machine_avg * 0.92:
+            lower_than.append(f"Machine {machine_id} average ({machine_avg:.1f}%)")
+            
+        if expected_waste_pct > fabric_avg * 1.08:
+            higher_than.append(f"{fabric_type} fabric historical average ({fabric_avg:.1f}%)")
+        elif expected_waste_pct < fabric_avg * 0.92:
+            lower_than.append(f"{fabric_type} fabric historical average ({fabric_avg:.1f}%)")
+            
+        if expected_waste_pct > factory_avg * 1.12:
+            higher_than.append(f"overall plant baseline ({factory_avg:.1f}%)")
+        elif expected_waste_pct < factory_avg * 0.88:
+            lower_than.append(f"overall plant baseline ({factory_avg:.1f}%)")
+            
+        if higher_than:
+            statement = f"Expected waste ({expected_waste_pct:.1f}%) is higher than the {', and '.join(higher_than)}."
+        elif lower_than:
+            statement = f"Expected waste ({expected_waste_pct:.1f}%) is lower than the {', and '.join(lower_than)}, indicating optimal operating parameters."
+        else:
+            statement = f"Expected waste ({expected_waste_pct:.1f}%) is aligned with the nominal historical baseline for this machine and fabric combination."
+
+        return {
+            "factory_average_pct": round(factory_avg, 2),
+            "machine_average_pct": round(machine_avg, 2),
+            "fabric_average_pct": round(fabric_avg, 2),
+            "machine_fabric_combination_avg_pct": round(mf_avg, 2),
+            "shift_average_pct": round(shift_avg, 2),
+            "variance_from_factory_pct": round(expected_waste_pct - factory_avg, 2),
+            "variance_from_machine_pct": round(expected_waste_pct - machine_avg, 2),
+            "variance_from_fabric_pct": round(expected_waste_pct - fabric_avg, 2),
+            "variance_from_combo_pct": round(expected_waste_pct - mf_avg, 2),
+            "comparison_summary": statement
+        }
+
     def get_machine_thresholds(self, machine_id: str) -> Dict[str, float]:
         """Returns baseline mean, std, and upper IQR threshold for a machine, falling back to factory defaults."""
         if machine_id in self.machine_stats and self.machine_stats[machine_id]["batch_count"] >= 3:

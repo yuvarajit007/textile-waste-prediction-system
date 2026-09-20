@@ -89,29 +89,39 @@ def validate_and_clean_batch(raw: Dict[str, Any], reference_date: Optional[date]
     # 6. Total Production Quantity
     prod_raw = get_val("total_production", "Total Production Quantity", "total_production_quantity", "production_quantity", "totalProduction", "production", "Production", "total_prod")
     try:
-        prod_val = float(prod_raw if prod_raw is not None else 0)
+        prod_val = float(prod_raw if prod_raw is not None and str(prod_raw).strip() != "" else 0)
     except (ValueError, TypeError):
         prod_val = 0.0
     cleaned["total_production"] = prod_val
 
-    # 7. Waste Quantity
+    # 7. Waste Quantity (Optional for pre-production expected waste predictions)
     waste_raw = get_val("waste_quantity", "Waste Quantity", "waste_qty", "wasteQuantity", "waste", "Waste")
-    try:
-        waste_val = float(waste_raw if waste_raw is not None else 0)
-    except (ValueError, TypeError):
-        waste_val = 0.0
-    cleaned["waste_quantity"] = max(0.0, waste_val)
+    has_actual_waste = False
+    waste_val = None
+    if waste_raw is not None and str(waste_raw).strip() != "" and str(waste_raw).lower() not in ["none", "nan", "null"]:
+        try:
+            waste_val = max(0.0, float(waste_raw))
+            has_actual_waste = True
+        except (ValueError, TypeError):
+            waste_val = None
+            has_actual_waste = False
+
+    cleaned["has_actual_waste"] = has_actual_waste
+    cleaned["waste_quantity"] = waste_val if has_actual_waste else 0.0
 
     # 8. Edge Case: Zero or Negative Production Quantity
     if prod_val <= 0:
         cleaned["is_valid"] = False
-        cleaned["validation_error"] = "Zero or negative production quantity. Waste percentage cannot be calculated (division by zero)."
+        cleaned["validation_error"] = "Production quantity must be greater than 0 kg."
         cleaned["waste_percentage"] = 0.0
     else:
         cleaned["is_valid"] = True
         cleaned["validation_error"] = None
-        # Strict formula requirement: (Waste Quantity / Total Production Quantity) * 100
-        cleaned["waste_percentage"] = round((cleaned["waste_quantity"] / prod_val) * 100.0, 2)
+        if has_actual_waste and waste_val is not None:
+            # Strict formula requirement: (Waste Quantity / Total Production Quantity) * 100
+            cleaned["waste_percentage"] = round((waste_val / prod_val) * 100.0, 2)
+        else:
+            cleaned["waste_percentage"] = None
 
     # 9. Production Speed
     speed_raw = get_val("production_speed", "Production Speed", "productionSpeed", "speed", "Speed", "rpm")

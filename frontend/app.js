@@ -20,6 +20,9 @@ const state = {
   },
   charts: {},
   lastPrediction: null,
+  predictorSubTab: 'subtab-expected-waste',
+  lastAfterPrediction: null,
+  afterPredictionBatch: null,
   config: {},
   rcaData: null,
   activeRcaBatch: null,
@@ -56,6 +59,20 @@ const state = {
 
 // Preset Edge Cases Data
 const PRESETS = {
+  expected_waste_demo: {
+    batch_id: 'BATCH-EXP-M03-' + Math.floor(1000 + Math.random() * 9000),
+    machine_id: 'M03',
+    fabric_type: 'Cotton',
+    shift: 'Night',
+    operator: 'Marcus Vance',
+    total_production: 1000,
+    waste_quantity: '', // Pre-production: waste unknown
+    production_speed: 880,
+    machine_age: 8.0,
+    last_maintenance_date: getDaysAgoDate(200),
+    humidity: 75,
+    temperature: 34.0
+  },
   normal: {
     batch_id: 'BATCH-NORMAL-' + Math.floor(1000 + Math.random() * 9000),
     machine_id: 'M08',
@@ -191,7 +208,9 @@ function escapeHtml(str) {
 // ------------------------------------------------------------
 document.addEventListener('DOMContentLoaded', () => {
   initNavigation();
+  initPredictorSubTabs();
   initPredictorForm();
+  initAfterPredictionSubTab();
   initRootCauseAI();
   init3DDigitalTwin();
   initFilters();
@@ -200,11 +219,20 @@ document.addEventListener('DOMContentLoaded', () => {
   loadConfig();
   loadOverviewData();
   
-  // Set default date for form
+  // Set default dates for forms
   const dateInput = document.getElementById('p-maint-date');
   if (dateInput) {
     dateInput.value = getDaysAgoDate(25);
   }
+  const apDateInput = document.getElementById('ap-maint-date');
+  if (apDateInput) {
+    apDateInput.value = getDaysAgoDate(95);
+  }
+
+  // Initial predictions so Risk Level and hero stats are live and accurate
+  setTimeout(() => {
+    runSinglePrediction(false);
+  }, 100);
 
   // Auto-refresh periodically (e.g. every 60s)
   setInterval(() => {
@@ -597,7 +625,41 @@ async function loadOverviewRecentBatches() {
 
 
 // ------------------------------------------------------------
-// TAB 2: LIVE PREDICTOR & WHAT-IF SIMULATOR
+// ------------------------------------------------------------
+// ------------------------------------------------------------
+// TAB 2: LIVE PREDICTOR & AFTER-PREDICTION WHAT-IF SIMULATOR
+// ------------------------------------------------------------
+
+// Sub-Tab Navigation Switcher
+function initPredictorSubTabs() {
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const subTabId = btn.getAttribute('data-subtab');
+      if (subTabId) {
+        switchPredictorSubTab(subTabId);
+      }
+    });
+  });
+}
+
+function switchPredictorSubTab(subTabId) {
+  state.predictorSubTab = subTabId;
+  document.querySelectorAll('.sub-tab-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.getAttribute('data-subtab') === subTabId);
+  });
+  document.querySelectorAll('.sub-tab-pane').forEach(pane => {
+    pane.classList.toggle('active', pane.id === subTabId);
+  });
+
+  if (subTabId === 'subtab-after-prediction') {
+    if (!state.lastAfterPrediction) {
+      runAfterPrediction(false);
+    }
+  }
+}
+
+// ------------------------------------------------------------
+// SUB-TAB 1: EXPECTED WASTE PREDICTION
 // ------------------------------------------------------------
 function initPredictorForm() {
   const form = document.getElementById('predict-form');
@@ -607,20 +669,28 @@ function initPredictorForm() {
 
   // Live Waste % calculation listener
   function updateLiveWasteDisplay() {
-    const prod = parseFloat(totalProdInput.value) || 0;
-    const waste = parseFloat(wasteQtyInput.value) || 0;
+    const prod = parseFloat(totalProdInput?.value) || 0;
+    const wasteStr = wasteQtyInput?.value?.trim();
+    const waste = wasteStr !== '' ? parseFloat(wasteStr) : null;
+    
     if (prod <= 0) {
-      computedDisplay.textContent = 'Invalid (Prod = 0)';
+      computedDisplay.textContent = 'Invalid (Production Quantity = 0)';
       computedDisplay.style.color = 'var(--risk-danger)';
+    } else if (waste === null || isNaN(waste)) {
+      computedDisplay.textContent = 'Pre-Production Forecast Mode (Expected waste will be predicted by AI)';
+      computedDisplay.style.color = 'var(--cyan)';
     } else {
       const pct = (waste / prod) * 100;
-      computedDisplay.textContent = pct.toFixed(2) + '%';
+      computedDisplay.textContent = `Actual Waste Entered: ${pct.toFixed(2)}% (${waste.toFixed(1)} kg / ${prod.toFixed(0)} kg)`;
       computedDisplay.style.color = pct > 6.5 ? 'var(--risk-danger)' : (pct > 4.5 ? 'var(--risk-warning)' : 'var(--cyan)');
     }
   }
 
   totalProdInput?.addEventListener('input', updateLiveWasteDisplay);
   wasteQtyInput?.addEventListener('input', updateLiveWasteDisplay);
+
+  // Initial display update
+  updateLiveWasteDisplay();
 
   // Form Submit
   form?.addEventListener('submit', async (e) => {
@@ -631,7 +701,7 @@ function initPredictorForm() {
   // Save button
   document.getElementById('btn-save-predicted-batch')?.addEventListener('click', async () => {
     if (!state.lastPrediction) {
-      showToast('Please analyze a batch first before saving.', 'error');
+      showToast('Please predict expected waste first before saving.', 'error');
       return;
     }
     await runSinglePrediction(true);
@@ -640,7 +710,6 @@ function initPredictorForm() {
   // Generate Finalized Report button
   document.getElementById('btn-open-batch-report')?.addEventListener('click', async () => {
     if (!state.lastPrediction) {
-      // Run prediction first then open report
       await runSinglePrediction(false);
     }
     if (state.lastPrediction) {
@@ -648,8 +717,8 @@ function initPredictorForm() {
     }
   });
 
-  // Preset Buttons
-  document.querySelectorAll('.btn-preset').forEach(btn => {
+  // Preset Buttons for Expected Waste
+  document.querySelectorAll('#subtab-expected-waste .btn-preset').forEach(btn => {
     btn.addEventListener('click', () => {
       const presetKey = btn.getAttribute('data-preset');
       const preset = PRESETS[presetKey];
@@ -668,7 +737,7 @@ function loadPresetIntoForm(preset) {
   document.getElementById('p-shift').value = preset.shift;
   document.getElementById('p-operator').value = preset.operator;
   document.getElementById('p-total-prod').value = preset.total_production;
-  document.getElementById('p-waste-qty').value = preset.waste_quantity;
+  document.getElementById('p-waste-qty').value = preset.waste_quantity !== undefined && preset.waste_quantity !== null ? preset.waste_quantity : '';
   document.getElementById('p-speed').value = preset.production_speed;
   document.getElementById('p-machine-age').value = preset.machine_age;
   document.getElementById('p-maint-date').value = preset.last_maintenance_date;
@@ -680,6 +749,7 @@ function loadPresetIntoForm(preset) {
 }
 
 async function runSinglePrediction(saveToDb = false) {
+  const wasteQtyStr = document.getElementById('p-waste-qty')?.value?.trim();
   const batchData = {
     batch_id: document.getElementById('p-batch-id').value,
     machine_id: document.getElementById('p-machine-id').value,
@@ -687,7 +757,7 @@ async function runSinglePrediction(saveToDb = false) {
     shift: document.getElementById('p-shift').value,
     operator: document.getElementById('p-operator').value,
     total_production: parseFloat(document.getElementById('p-total-prod').value),
-    waste_quantity: parseFloat(document.getElementById('p-waste-qty').value),
+    waste_quantity: wasteQtyStr !== '' ? parseFloat(wasteQtyStr) : null,
     production_speed: parseFloat(document.getElementById('p-speed').value),
     machine_age: parseFloat(document.getElementById('p-machine-age').value),
     last_maintenance_date: document.getElementById('p-maint-date').value,
@@ -696,7 +766,7 @@ async function runSinglePrediction(saveToDb = false) {
   };
 
   try {
-    const url = `/api/predict?save=${saveToDb}`;
+    const url = `/api/predict-expected?save=${saveToDb}`;
     const res = await fetch(url, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -727,60 +797,160 @@ function renderPredictionResult(result) {
   const riskScore = result.risk_score || 0;
   const riskLevel = result.risk_level || 'NORMAL';
   const confidence = result.confidence_score || 95;
-  const batchId = result.batch_id || 'PREDICTED-BATCH';
 
-  // Animate Circular Gauge
-  const circle = document.getElementById('risk-gauge-circle');
-  const scoreNum = document.getElementById('res-risk-score');
-  
-  let color = 'var(--risk-normal)';
-  if (riskLevel === 'WARNING') color = 'var(--risk-warning)';
-  if (riskLevel === 'HIGH RISK') color = 'var(--risk-danger)';
-  if (riskLevel === 'INVALID') color = 'var(--text-muted)';
-
-  const degrees = (riskScore / 100) * 360;
-  if (circle) {
-    circle.style.background = `conic-gradient(${color} ${degrees}deg, var(--bg-input) ${degrees}deg)`;
-  }
-  if (scoreNum) {
-    scoreNum.textContent = riskScore.toFixed(0);
-    scoreNum.style.color = color;
+  // 1. EXPECTED WASTE HERO METRICS
+  const expWastePctEl = document.getElementById('res-expected-waste-pct');
+  if (expWastePctEl) {
+    if (result.expected_waste_percentage != null) {
+      expWastePctEl.textContent = `${result.expected_waste_percentage.toFixed(1)}%`;
+      expWastePctEl.className = `stat-value font-accent ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-cyan')}`;
+    } else {
+      expWastePctEl.textContent = '--';
+    }
   }
 
-  // Risk Badge & Batch Tag
+  const likelyPctRangeEl = document.getElementById('res-likely-pct-range');
+  if (likelyPctRangeEl) {
+    if (result.likely_range_pct) {
+      likelyPctRangeEl.textContent = `Likely: ${result.likely_range_pct.display || (result.likely_range_pct.min + '%–' + result.likely_range_pct.max + '%')}`;
+    } else {
+      likelyPctRangeEl.textContent = 'Likely Range: N/A';
+    }
+  }
+
+  const expWasteKgEl = document.getElementById('res-expected-waste-kg');
+  if (expWasteKgEl) {
+    if (result.expected_waste_kg != null) {
+      expWasteKgEl.textContent = `${result.expected_waste_kg.toFixed(0)} kg`;
+    } else {
+      expWasteKgEl.textContent = '--';
+    }
+  }
+
+  const likelyKgRangeEl = document.getElementById('res-likely-kg-range');
+  if (likelyKgRangeEl) {
+    if (result.likely_range_kg) {
+      likelyKgRangeEl.textContent = `Likely: ${result.likely_range_kg.display || (result.likely_range_kg.min + '–' + result.likely_range_kg.max + ' kg')}`;
+    } else {
+      likelyKgRangeEl.textContent = 'Likely: N/A';
+    }
+  }
+
+  const expGoodProdEl = document.getElementById('res-expected-good-prod');
+  if (expGoodProdEl) {
+    if (result.expected_good_production_kg != null) {
+      expGoodProdEl.textContent = `${result.expected_good_production_kg.toLocaleString()} kg`;
+    } else {
+      expGoodProdEl.textContent = '--';
+    }
+  }
+
+  // ----------------------------------------------------
+  // DYNAMIC & REACTIVE RISK LEVEL HERO CARD
+  // ----------------------------------------------------
   const badge = document.getElementById('res-risk-badge');
-  const badgeText = document.getElementById('res-risk-text');
-  if (badge && badgeText) {
-    badge.className = `risk-badge-large badge-${riskLevel.toLowerCase().replace(' ', '-')}`;
-    badgeText.textContent = riskLevel;
-  }
-  const batchTag = document.getElementById('res-batch-id-tag');
-  if (batchTag) {
-    batchTag.textContent = `Batch: ${batchId}`;
+  const meterFill = document.getElementById('res-risk-meter-fill');
+  const riskStatusTag = document.getElementById('res-risk-status-tag');
+  
+  if (badge) {
+    let badgeClass = 'badge-normal';
+    let iconClass = 'fa-solid fa-circle-check';
+    let meterColor = 'var(--risk-normal)';
+    
+    if (riskLevel === 'WARNING') {
+      badgeClass = 'badge-warning';
+      iconClass = 'fa-solid fa-triangle-exclamation';
+      meterColor = 'var(--risk-warning)';
+    } else if (riskLevel === 'HIGH RISK') {
+      badgeClass = 'badge-danger';
+      iconClass = 'fa-solid fa-triangle-exclamation';
+      meterColor = 'var(--risk-danger)';
+    } else if (riskLevel === 'INVALID') {
+      badgeClass = 'badge-invalid';
+      iconClass = 'fa-solid fa-ban';
+      meterColor = 'rgba(156, 163, 175, 0.4)';
+    }
+    
+    badge.className = `risk-badge-large ${badgeClass}`;
+    badge.innerHTML = `<i class="${iconClass}"></i> <span id="res-risk-text">${escapeHtml(riskLevel)}</span>`;
+    
+    if (meterFill) {
+      meterFill.style.width = `${Math.min(100, Math.max(0, riskScore))}%`;
+      meterFill.style.background = meterColor;
+    }
+    
+    if (riskStatusTag) {
+      riskStatusTag.textContent = riskLevel === 'INVALID' ? 'Invalid Telemetry' : (riskLevel === 'HIGH RISK' ? 'Elevated Hazard' : (riskLevel === 'WARNING' ? 'Caution Needed' : 'Nominal Safe'));
+      riskStatusTag.className = `text-xs font-bold ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-green')}`;
+    }
   }
 
-  // Confidence
+  const riskScoreSub = document.getElementById('res-risk-score-sub');
+  if (riskScoreSub) {
+    riskScoreSub.textContent = `Risk Score: ${riskScore.toFixed(0)}/100`;
+  }
+
+  // Interactive Click to scroll & highlight Risk Breakdown
+  const riskCardContainer = document.getElementById('res-risk-card-container');
+  if (riskCardContainer && !riskCardContainer._hasClickListener) {
+    riskCardContainer._hasClickListener = true;
+    riskCardContainer.addEventListener('click', () => {
+      const target = document.getElementById('section-factor-breakdown') || document.getElementById('panel-why-at-risk');
+      if (target) {
+        target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        target.style.boxShadow = '0 0 25px rgba(6, 182, 212, 0.4)';
+        setTimeout(() => { target.style.boxShadow = ''; }, 1800);
+      }
+    });
+  }
+
+  // Confidence Badge
   const confBadge = document.getElementById('res-confidence-badge');
   if (confBadge) {
     confBadge.textContent = `Confidence: ${confidence.toFixed(0)}%`;
-    confBadge.className = result.is_new_machine ? 'badge badge-warning' : 'badge badge-subtle';
+    if (riskLevel === 'INVALID') {
+      confBadge.className = 'badge badge-invalid';
+    } else {
+      confBadge.className = result.is_new_machine ? 'badge badge-warning' : 'badge badge-subtle';
+    }
   }
 
-  // Metrics
-  const wastePctEl = document.getElementById('res-waste-pct');
-  if (wastePctEl) {
-    wastePctEl.textContent = `${result.waste_percentage?.toFixed(2)}%`;
-    wastePctEl.className = `sub-val font-bold ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-normal')}`;
+  // 2. MULTI-LEVEL HISTORICAL COMPARISON MATRIX
+  const comp = result.historical_comparison || {};
+  const compSummaryEl = document.getElementById('res-hist-comparison-summary');
+  if (compSummaryEl) {
+    compSummaryEl.textContent = comp.comparison_summary || 'Historical baselines evaluated for factory, machine, and fabric profiles.';
   }
-  const abnormalEl = document.getElementById('res-is-abnormal');
-  if (abnormalEl) {
-    abnormalEl.textContent = result.is_abnormal ? 'Yes (Abnormal Flagged)' : 'No (Within Range)';
-    abnormalEl.style.color = result.is_abnormal ? 'var(--risk-danger)' : 'var(--risk-normal)';
+  const fAvgEl = document.getElementById('hist-comp-factory');
+  if (fAvgEl) fAvgEl.textContent = `${comp.factory_average_pct != null ? comp.factory_average_pct.toFixed(1) : '4.0'}%`;
+  const mAvgEl = document.getElementById('hist-comp-machine');
+  if (mAvgEl) mAvgEl.textContent = `${comp.machine_average_pct != null ? comp.machine_average_pct.toFixed(1) : '4.2'}%`;
+  const fabAvgEl = document.getElementById('hist-comp-fabric');
+  if (fabAvgEl) fabAvgEl.textContent = `${comp.fabric_average_pct != null ? comp.fabric_average_pct.toFixed(1) : '5.1'}%`;
+  const comboAvgEl = document.getElementById('hist-comp-combo');
+  if (comboAvgEl) comboAvgEl.textContent = `${comp.machine_fabric_combination_avg_pct != null ? comp.machine_fabric_combination_avg_pct.toFixed(1) : '4.6'}%`;
+  const shiftAvgEl = document.getElementById('hist-comp-shift');
+  if (shiftAvgEl) shiftAvgEl.textContent = `${comp.shift_average_pct != null ? comp.shift_average_pct.toFixed(1) : '3.9'}%`;
+
+  // 3. EXPECTED VS ACTUAL COMPARISON TABLE
+  const evaPanel = document.getElementById('panel-expected-vs-actual');
+  const eva = result.expected_vs_actual;
+  if (evaPanel) {
+    if (eva && eva.has_actual) {
+      evaPanel.classList.remove('hidden');
+      document.getElementById('eva-expected-pct').textContent = `${eva.expected_waste_pct?.toFixed(1)}%`;
+      document.getElementById('eva-actual-pct').textContent = `${eva.actual_waste_pct?.toFixed(1)}%`;
+      document.getElementById('eva-expected-kg').textContent = `${eva.expected_waste_kg?.toFixed(1)} kg`;
+      document.getElementById('eva-actual-kg').textContent = `${eva.actual_waste_kg?.toFixed(1)} kg`;
+      document.getElementById('eva-diff-kg').textContent = eva.difference_sign || `${eva.difference_kg?.toFixed(1)} kg`;
+      document.getElementById('eva-abs-error').textContent = `${eva.absolute_error_kg?.toFixed(1)} kg`;
+      document.getElementById('eva-accuracy-pct').textContent = `${eva.prediction_accuracy_pct?.toFixed(1)}%`;
+    } else {
+      evaPanel.classList.add('hidden');
+    }
   }
 
-  // ----------------------------------------------------
-  // 1. REASON CARDS (WHY IS THIS BATCH AT RISK?)
-  // ----------------------------------------------------
+  // 4. REASON CARDS (WHY IS THIS WASTE EXPECTED?)
   const reasonCardsContainer = document.getElementById('res-reason-cards-container');
   const reasonCards = result.reason_cards || (result.root_cause_analysis && result.root_cause_analysis.reason_cards) || [];
   if (reasonCardsContainer) {
@@ -824,9 +994,7 @@ function renderPredictionResult(result) {
     }
   }
 
-  // ----------------------------------------------------
-  // 2. PREVENTIVE SOLUTIONS (HOW CAN THE WASTE BE PREVENTED?)
-  // ----------------------------------------------------
+  // 5. PREVENTIVE SOLUTIONS (HOW CAN THE EXPECTED WASTE BE REDUCED?)
   const solutionsContainer = document.getElementById('res-preventive-solutions-container');
   const solutions = result.preventive_solutions || (result.root_cause_analysis && result.root_cause_analysis.preventive_solutions) || [];
   if (solutionsContainer) {
@@ -860,36 +1028,32 @@ function renderPredictionResult(result) {
     }
   }
 
-  // ----------------------------------------------------
-  // 3. RECOMMENDED ACTION PLAN (Inspect -> Adjust -> Maintain -> Monitor)
-  // ----------------------------------------------------
+  // 6. RECOMMENDED ACTION PLAN (Inspect -> Adjust -> Maintain -> Monitor)
   const actionPlan = result.recommended_action_plan || (result.root_cause_analysis && result.root_cause_analysis.recommended_action_plan) || {};
-  const summaryEl = document.getElementById('res-action-summary');
-  const stepsListEl = document.getElementById('res-action-steps-list');
-  if (summaryEl) {
-    summaryEl.textContent = actionPlan.summary || (riskLevel === 'HIGH RISK' ? 'Multiple factors indicate a high probability of abnormal waste. Immediate inspection is recommended before continuing production.' : (riskLevel === 'WARNING' ? 'The batch shows moderate risk factors. Review the highlighted conditions before continuing large-scale production.' : 'Production conditions are within the expected range. Continue monitoring waste percentage.'));
-  }
-  if (stepsListEl) {
+  const actionSummaryEl = document.getElementById('res-action-summary');
+  const actionStepsEl = document.getElementById('res-action-steps-list');
+  const actionBox = document.getElementById('res-action-box');
+  if (actionPlan && actionSummaryEl && actionStepsEl) {
+    actionSummaryEl.textContent = actionPlan.summary || (riskLevel === 'HIGH RISK' ? 'Multiple factors indicate a high probability of abnormal waste. Immediate inspection is recommended before continuing production.' : (riskLevel === 'WARNING' ? 'The batch shows moderate risk factors. Review the highlighted conditions before continuing large-scale production.' : 'Production conditions are within the expected range. Continue monitoring waste percentage.'));
+    if (actionBox) {
+      actionBox.className = `risk-action-box action-box-${(actionPlan.risk_level || 'normal').toLowerCase().replace(' ', '-')}`;
+    }
     const steps = actionPlan.steps || result.actions || [
       'Continue production according to standard operational schedule.',
       'Monitor machine performance and tension telemetry.',
       'Maintain standard scheduled maintenance timeline.'
     ];
-    stepsListEl.innerHTML = steps.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    actionStepsEl.innerHTML = steps.map(step => `<li>${escapeHtml(step)}</li>`).join('');
   }
 
-  // ----------------------------------------------------
-  // 4. FACTOR CONTRIBUTIONS BARS
-  // ----------------------------------------------------
+  // 7. FACTOR CONTRIBUTIONS BARS
   const factors = result.factor_contributions || {};
   updateFactorBar('bar-factor-waste', 'factor-waste-val', factors.waste_deviation || 0);
   updateFactorBar('bar-factor-maint', 'factor-maint-val', factors.maintenance_health || 0);
   updateFactorBar('bar-factor-speed', 'factor-speed-val', factors.speed_stress || 0);
   updateFactorBar('bar-factor-env', 'factor-env-val', factors.environment_age || 0);
 
-  // ----------------------------------------------------
-  // 5. ROOT-CAUSE AI PRIMARY CAUSE CALLOUT
-  // ----------------------------------------------------
+  // ROOT-CAUSE AI PRIMARY CAUSE CALLOUT
   const rcaCallout = document.getElementById('pred-rca-container');
   if (rcaCallout) {
     const rca = result.root_cause_analysis;
@@ -913,6 +1077,469 @@ function updateFactorBar(barId, labelId, val) {
   const lbl = document.getElementById(labelId);
   if (bar) bar.style.width = Math.min(100, Math.max(0, val)) + '%';
   if (lbl) lbl.textContent = Math.round(val) + '%';
+}
+
+
+// ------------------------------------------------------------
+// SUB-TAB 2: AI-RISK PREDICTOR WITH AFTER PREDICTION
+// ------------------------------------------------------------
+function initAfterPredictionSubTab() {
+  const form = document.getElementById('after-pred-form');
+  const totalProdInput = document.getElementById('ap-total-prod');
+  const wasteQtyInput = document.getElementById('ap-waste-qty');
+  const liveCalc = document.getElementById('ap-computed-waste-display');
+
+  function updateLiveCalc() {
+    const prod = parseFloat(totalProdInput?.value) || 0;
+    const waste = parseFloat(wasteQtyInput?.value) || 0;
+    if (prod > 0 && waste >= 0) {
+      const pct = (waste / prod) * 100;
+      liveCalc.textContent = `${pct.toFixed(2)}% (${waste.toFixed(1)} kg / ${prod.toFixed(0)} kg)`;
+      liveCalc.style.color = pct > 6.5 ? 'var(--risk-danger)' : (pct > 4.5 ? 'var(--risk-warning)' : 'var(--cyan)');
+    } else {
+      liveCalc.textContent = 'Enter production & waste quantities';
+      liveCalc.style.color = 'var(--text-muted)';
+    }
+  }
+
+  totalProdInput?.addEventListener('input', updateLiveCalc);
+  wasteQtyInput?.addEventListener('input', updateLiveCalc);
+  updateLiveCalc();
+
+  // Form Submit
+  form?.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    await runAfterPrediction(false);
+  });
+
+  // Preset Buttons
+  document.querySelectorAll('.btn-after-preset').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const presetKey = btn.getAttribute('data-preset');
+      const preset = PRESETS[presetKey];
+      if (preset) {
+        loadAfterPredictionPreset(preset);
+        runAfterPrediction(false);
+      }
+    });
+  });
+
+  // Real-time Simulator Sliders
+  const speedSlider = document.getElementById('slider-ap-speed');
+  const humiditySlider = document.getElementById('slider-ap-humidity');
+  const maintSlider = document.getElementById('slider-ap-maint');
+  const tempSlider = document.getElementById('slider-ap-temp');
+
+  let simDebounceTimer = null;
+  function onSliderInput() {
+    document.getElementById('lbl-ap-speed').textContent = `${speedSlider.value} RPM`;
+    document.getElementById('lbl-ap-humidity').textContent = `${humiditySlider.value}% RH`;
+    document.getElementById('lbl-ap-maint').textContent = `${maintSlider.value} Days`;
+    document.getElementById('lbl-ap-temp').textContent = `${parseFloat(tempSlider.value).toFixed(1)}°C`;
+
+    clearTimeout(simDebounceTimer);
+    simDebounceTimer = setTimeout(() => {
+      updateAfterPredictionSimulation();
+    }, 60);
+  }
+
+  speedSlider?.addEventListener('input', onSliderInput);
+  humiditySlider?.addEventListener('input', onSliderInput);
+  maintSlider?.addEventListener('input', onSliderInput);
+  tempSlider?.addEventListener('input', onSliderInput);
+
+  // Auto-Tune Safe Levers Button
+  document.getElementById('btn-ap-auto-tune')?.addEventListener('click', () => {
+    autoTuneAfterPredictionLevers();
+  });
+
+  // Reset Sliders Button
+  document.getElementById('btn-ap-reset-sliders')?.addEventListener('click', () => {
+    resetAfterPredictionSliders();
+  });
+
+  // Apply Tuned Levers to Form
+  document.getElementById('btn-ap-apply-to-form')?.addEventListener('click', () => {
+    applyAfterPredictionLeversToForm();
+  });
+
+  // Save Batch to Database
+  document.getElementById('btn-ap-save-batch')?.addEventListener('click', async () => {
+    await saveAfterPredictionBatch();
+  });
+
+  // Generate Audit Report
+  document.getElementById('btn-ap-open-report')?.addEventListener('click', () => {
+    if (state.lastAfterPrediction) {
+      openBatchFinalizedReport(state.lastAfterPrediction);
+    } else {
+      showToast('Please run risk assessment first before generating report.', 'info');
+    }
+  });
+}
+
+function loadAfterPredictionPreset(preset) {
+  document.getElementById('ap-batch-id').value = preset.batch_id;
+  document.getElementById('ap-machine-id').value = preset.machine_id;
+  document.getElementById('ap-fabric-type').value = preset.fabric_type;
+  document.getElementById('ap-shift').value = preset.shift;
+  document.getElementById('ap-operator').value = preset.operator;
+  document.getElementById('ap-total-prod').value = preset.total_production;
+  document.getElementById('ap-waste-qty').value = preset.waste_quantity !== undefined && preset.waste_quantity !== null && preset.waste_quantity !== '' ? preset.waste_quantity : Math.round(preset.total_production * 0.05);
+  document.getElementById('ap-speed').value = preset.production_speed;
+  document.getElementById('ap-machine-age').value = preset.machine_age;
+  document.getElementById('ap-maint-date').value = preset.last_maintenance_date;
+  document.getElementById('ap-humidity').value = preset.humidity !== null && preset.humidity !== undefined ? preset.humidity : 55;
+  document.getElementById('ap-temperature').value = preset.temperature;
+
+  // Trigger input
+  document.getElementById('ap-total-prod').dispatchEvent(new Event('input'));
+}
+
+async function runAfterPrediction(saveToDb = false) {
+  const batchData = {
+    batch_id: document.getElementById('ap-batch-id').value,
+    machine_id: document.getElementById('ap-machine-id').value,
+    fabric_type: document.getElementById('ap-fabric-type').value,
+    shift: document.getElementById('ap-shift').value,
+    operator: document.getElementById('ap-operator').value,
+    total_production: parseFloat(document.getElementById('ap-total-prod').value) || 1000,
+    waste_quantity: parseFloat(document.getElementById('ap-waste-qty').value) || 0,
+    production_speed: parseFloat(document.getElementById('ap-speed').value) || 800,
+    machine_age: parseFloat(document.getElementById('ap-machine-age').value) || 3.0,
+    last_maintenance_date: document.getElementById('ap-maint-date').value,
+    humidity: document.getElementById('ap-humidity').value !== '' ? parseFloat(document.getElementById('ap-humidity').value) : 55,
+    temperature: parseFloat(document.getElementById('ap-temperature').value) || 25.0
+  };
+
+  try {
+    const url = `/api/predict?save=${saveToDb}`;
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(batchData)
+    });
+
+    if (!res.ok) {
+      const errData = await res.json();
+      throw new Error(errData.detail || 'Risk assessment failed');
+    }
+
+    const result = await res.json();
+    state.lastAfterPrediction = result;
+    state.afterPredictionBatch = batchData;
+
+    renderInitialAfterPredictionRisk(result);
+
+    // Synchronize simulator sliders to match the newly submitted batch
+    const speedSlider = document.getElementById('slider-ap-speed');
+    const humiditySlider = document.getElementById('slider-ap-humidity');
+    const maintSlider = document.getElementById('slider-ap-maint');
+    const tempSlider = document.getElementById('slider-ap-temp');
+
+    if (speedSlider) speedSlider.value = result.production_speed || 800;
+    if (humiditySlider) humiditySlider.value = result.humidity || 55;
+    if (maintSlider) maintSlider.value = result.maintenance_age_days != null ? result.maintenance_age_days : 30;
+    if (tempSlider) tempSlider.value = result.temperature || 25.0;
+
+    document.getElementById('lbl-ap-speed').textContent = `${speedSlider?.value || 800} RPM`;
+    document.getElementById('lbl-ap-humidity').textContent = `${humiditySlider?.value || 55}% RH`;
+    document.getElementById('lbl-ap-maint').textContent = `${maintSlider?.value || 30} Days`;
+    document.getElementById('lbl-ap-temp').textContent = `${parseFloat(tempSlider?.value || 25).toFixed(1)}°C`;
+
+    // Run simulation
+    await updateAfterPredictionSimulation();
+
+    if (saveToDb) {
+      showToast(`Batch ${result.batch_id} saved to database!`, 'success');
+      loadOverviewData(false);
+    }
+
+  } catch (err) {
+    showToast(`Error: ${err.message}`, 'error');
+  }
+}
+
+function renderInitialAfterPredictionRisk(result) {
+  const riskLevel = result.risk_level || 'NORMAL';
+  const riskScore = result.risk_score || 0;
+  const wastePct = result.waste_percentage != null ? result.waste_percentage : 0.0;
+  const wasteKg = result.waste_quantity != null ? result.waste_quantity : 0.0;
+
+  // Initial Assessment Hero Card
+  const initBadge = document.getElementById('ap-initial-risk-badge');
+  if (initBadge) {
+    initBadge.textContent = riskLevel;
+    initBadge.className = `badge ${riskLevel === 'HIGH RISK' ? 'badge-danger' : (riskLevel === 'WARNING' ? 'badge-warning' : 'badge-normal')}`;
+  }
+
+  const initWasteEl = document.getElementById('ap-init-waste-pct');
+  if (initWasteEl) {
+    initWasteEl.textContent = `${wastePct.toFixed(2)}%`;
+    initWasteEl.className = `font-bold font-accent ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-cyan')}`;
+  }
+
+  const initWasteKgEl = document.getElementById('ap-init-waste-kg');
+  if (initWasteKgEl) {
+    initWasteKgEl.textContent = `${wasteKg.toFixed(1)} kg total waste`;
+  }
+
+  const initScoreEl = document.getElementById('ap-init-risk-score');
+  if (initScoreEl) {
+    initScoreEl.textContent = `${riskScore.toFixed(0)}/100`;
+    initScoreEl.className = `font-bold ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-green')}`;
+  }
+
+  const initAnomalyEl = document.getElementById('ap-init-anomaly-tag');
+  if (initAnomalyEl) {
+    initAnomalyEl.textContent = result.is_abnormal ? 'Abnormal Deviation' : 'Nominal Safe Range';
+    initAnomalyEl.className = `text-xs ${result.is_abnormal ? 'text-danger font-bold' : 'text-green'}`;
+  }
+
+  const rca = result.root_cause_analysis;
+  const primaryDriver = (rca && rca.primary_cause && rca.primary_cause.title) || (result.reasons && result.reasons[0]) || 'Operational Baseline Limits';
+  const explanation = (rca && rca.primary_cause && rca.primary_cause.explanation) || 'Parameters evaluated against standard manufacturing baselines.';
+  
+  const driverEl = document.getElementById('ap-init-primary-driver');
+  if (driverEl) driverEl.textContent = primaryDriver;
+
+  const explEl = document.getElementById('ap-init-explanation');
+  if (explEl) explEl.textContent = explanation;
+
+  const confEl = document.getElementById('ap-init-confidence');
+  if (confEl) confEl.textContent = `${(result.confidence_score || 95).toFixed(0)}% Confidence`;
+
+  // Before Column in Comparison
+  const beforeTag = document.getElementById('ap-before-risk-tag');
+  if (beforeTag) {
+    beforeTag.textContent = riskLevel;
+    beforeTag.className = `badge ${riskLevel === 'HIGH RISK' ? 'badge-danger' : (riskLevel === 'WARNING' ? 'badge-warning' : 'badge-normal')} text-xs`;
+  }
+
+  const beforeWasteVal = document.getElementById('ap-before-waste-val');
+  if (beforeWasteVal) {
+    beforeWasteVal.textContent = `${wastePct.toFixed(2)}%`;
+    beforeWasteVal.className = `comparison-hero-stat font-accent ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-cyan')}`;
+  }
+
+  const beforeScoreVal = document.getElementById('ap-before-score-val');
+  if (beforeScoreVal) {
+    beforeScoreVal.textContent = `${riskScore.toFixed(0)} / 100`;
+    beforeScoreVal.className = `font-bold ${riskLevel === 'HIGH RISK' ? 'text-danger' : (riskLevel === 'WARNING' ? 'text-warning' : 'text-green')}`;
+  }
+
+  const beforeWasteKgVal = document.getElementById('ap-before-waste-kg-val');
+  if (beforeWasteKgVal) {
+    beforeWasteKgVal.textContent = `${wasteKg.toFixed(1)} kg`;
+  }
+}
+
+async function updateAfterPredictionSimulation() {
+  const currentBatch = state.afterPredictionBatch || {
+    machine_id: document.getElementById('ap-machine-id')?.value || 'M02',
+    fabric_type: document.getElementById('ap-fabric-type')?.value || 'Cotton',
+    total_production: parseFloat(document.getElementById('ap-total-prod')?.value) || 1000,
+    waste_quantity: parseFloat(document.getElementById('ap-waste-qty')?.value) || 85,
+    production_speed: parseFloat(document.getElementById('slider-ap-speed')?.value) || 800,
+    machine_age: parseFloat(document.getElementById('ap-machine-age')?.value) || 6.2,
+    maintenance_age_days: parseInt(document.getElementById('slider-ap-maint')?.value) || 30,
+    humidity: parseFloat(document.getElementById('slider-ap-humidity')?.value) || 55,
+    temperature: parseFloat(document.getElementById('slider-ap-temp')?.value) || 25.0
+  };
+
+  const modifiedParams = {
+    production_speed: parseFloat(document.getElementById('slider-ap-speed')?.value || 800),
+    humidity: parseFloat(document.getElementById('slider-ap-humidity')?.value || 55),
+    maintenance_age_days: parseInt(document.getElementById('slider-ap-maint')?.value || 30),
+    temperature: parseFloat(document.getElementById('slider-ap-temp')?.value || 25.0)
+  };
+
+  try {
+    const res = await fetch('/api/root-cause/simulate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        batch: currentBatch,
+        modified_params: modifiedParams
+      })
+    });
+
+    if (!res.ok) return;
+    const sim = await res.json();
+
+    // After Column Update
+    const afterRiskLevel = sim.simulated_risk_level || 'NORMAL';
+    const afterRiskScore = sim.simulated_risk_score != null ? sim.simulated_risk_score : 20;
+    const afterWastePct = sim.simulated_waste_percentage != null ? sim.simulated_waste_percentage : (sim.simulated_waste_pct != null ? sim.simulated_waste_pct : 3.8);
+    const wasteReductionPct = sim.waste_reduction_pct != null ? sim.waste_reduction_pct : (sim.estimated_waste_reduction_pct != null ? sim.estimated_waste_reduction_pct : 0);
+    const wasteSavedKg = sim.estimated_kg_saved != null ? sim.estimated_kg_saved : (sim.estimated_waste_saved_kg != null ? sim.estimated_waste_saved_kg : 0);
+    const initialRisk = sim.initial_risk_score != null ? sim.initial_risk_score : (currentBatch.risk_score || 0);
+    const riskDelta = sim.risk_delta != null ? sim.risk_delta : Math.round(afterRiskScore - initialRisk);
+
+    const afterTag = document.getElementById('ap-after-risk-tag');
+    if (afterTag) {
+      afterTag.textContent = afterRiskLevel;
+      afterTag.className = `badge ${afterRiskLevel === 'HIGH RISK' ? 'badge-danger' : (afterRiskLevel === 'WARNING' ? 'badge-warning' : 'badge-normal')} text-xs`;
+    }
+
+    const afterWasteVal = document.getElementById('ap-after-waste-val');
+    if (afterWasteVal) {
+      afterWasteVal.textContent = `${afterWastePct.toFixed(2)}%`;
+      afterWasteVal.className = `comparison-hero-stat font-accent ${afterRiskLevel === 'HIGH RISK' ? 'text-danger' : (afterRiskLevel === 'WARNING' ? 'text-warning' : 'text-normal')}`;
+    }
+
+    const deltaWasteBadge = document.getElementById('ap-delta-waste-badge');
+    if (deltaWasteBadge) {
+      const deltaSign = wasteReductionPct > 0 ? '-' : '+';
+      deltaWasteBadge.textContent = `${deltaSign}${Math.abs(wasteReductionPct).toFixed(2)}%`;
+      deltaWasteBadge.className = `delta-badge ${wasteReductionPct >= 0 ? 'delta-improved' : 'delta-degraded'}`;
+    }
+
+    const afterScoreVal = document.getElementById('ap-after-score-val');
+    if (afterScoreVal) {
+      afterScoreVal.textContent = `${afterRiskScore} / 100`;
+      afterScoreVal.className = `font-bold ${afterRiskLevel === 'HIGH RISK' ? 'text-danger' : (afterRiskLevel === 'WARNING' ? 'text-warning' : 'text-normal')}`;
+    }
+
+    const deltaScoreBadge = document.getElementById('ap-delta-score-badge');
+    if (deltaScoreBadge) {
+      deltaScoreBadge.textContent = `${riskDelta <= 0 ? '' : '+'}${riskDelta} pts`;
+      deltaScoreBadge.className = `delta-badge ${riskDelta <= 0 ? 'delta-improved' : 'delta-degraded'}`;
+    }
+
+    const afterWasteKgVal = document.getElementById('ap-after-waste-kg-val');
+    if (afterWasteKgVal) {
+      const totalProd = currentBatch.total_production || 1000;
+      const simKg = (afterWastePct / 100) * totalProd;
+      afterWasteKgVal.textContent = `${simKg.toFixed(1)} kg`;
+    }
+
+    // Savings Box
+    const savedKgEl = document.getElementById('ap-saved-kg-display');
+    if (savedKgEl) {
+      savedKgEl.textContent = `${wasteSavedKg >= 0 ? '+' : ''}${wasteSavedKg.toFixed(1)} kg`;
+      savedKgEl.className = `savings-amount ${wasteSavedKg >= 0 ? 'text-normal' : 'text-danger'}`;
+    }
+
+    const savedPctEl = document.getElementById('ap-saved-pct-display');
+    if (savedPctEl) {
+      const origWaste = currentBatch.waste_quantity || (currentBatch.total_production * 0.08);
+      const relPct = origWaste > 0 ? (wasteSavedKg / origWaste) * 100 : 0;
+      savedPctEl.textContent = `${Math.max(0, relPct).toFixed(1)}% waste reduction`;
+    }
+
+    // Prescriptive Steps
+    const stepsList = document.getElementById('ap-prescriptive-steps-list');
+    if (stepsList) {
+      const steps = [];
+      if (modifiedParams.maintenance_age_days < 25) {
+        steps.push(`Perform preventive maintenance & calibration on machine ${currentBatch.machine_id} (resetting cycle).`);
+      }
+      if (modifiedParams.production_speed <= 780) {
+        steps.push(`Regulate loom speed to ${modifiedParams.production_speed} RPM to alleviate mechanical yarn friction.`);
+      }
+      if (modifiedParams.humidity >= 55 && modifiedParams.humidity <= 65) {
+        steps.push(`Maintain climate humidity at ${modifiedParams.humidity}% RH in loom shed to prevent static yarn snapping.`);
+      }
+      if (modifiedParams.temperature <= 26.0) {
+        steps.push(`Control bay temperature at ${modifiedParams.temperature.toFixed(1)}°C to avoid thermal motor drift.`);
+      }
+      if (steps.length === 0) {
+        steps.push('Parameters are tuned to standard operational baseline limits. Continue real-time monitoring.');
+      }
+      stepsList.innerHTML = steps.map(s => `<li>${escapeHtml(s)}</li>`).join('');
+    }
+
+  } catch (err) {
+    console.error('Error updating after prediction simulation:', err);
+  }
+}
+
+function autoTuneAfterPredictionLevers() {
+  const fabric = document.getElementById('ap-fabric-type')?.value || 'Cotton';
+  
+  // Safe speed table
+  const safeSpeeds = {
+    'Silk': 680,
+    'Wool': 700,
+    'Cotton': 820,
+    'Polyester': 850,
+    'Denim': 760,
+    'Linen': 720,
+    'Rayon': 780
+  };
+
+  const safeSpeed = safeSpeeds[fabric] || 780;
+  
+  const speedSlider = document.getElementById('slider-ap-speed');
+  const humiditySlider = document.getElementById('slider-ap-humidity');
+  const maintSlider = document.getElementById('slider-ap-maint');
+  const tempSlider = document.getElementById('slider-ap-temp');
+
+  if (speedSlider) speedSlider.value = safeSpeed;
+  if (humiditySlider) humiditySlider.value = 58;
+  if (maintSlider) maintSlider.value = 10;
+  if (tempSlider) tempSlider.value = 24.0;
+
+  document.getElementById('lbl-ap-speed').textContent = `${safeSpeed} RPM`;
+  document.getElementById('lbl-ap-humidity').textContent = `58% RH`;
+  document.getElementById('lbl-ap-maint').textContent = `10 Days`;
+  document.getElementById('lbl-ap-temp').textContent = `24.0°C`;
+
+  updateAfterPredictionSimulation();
+  showToast('AI optimal safe operating levers applied!', 'success');
+}
+
+function resetAfterPredictionSliders() {
+  if (state.afterPredictionBatch) {
+    const b = state.afterPredictionBatch;
+    const speedSlider = document.getElementById('slider-ap-speed');
+    const humiditySlider = document.getElementById('slider-ap-humidity');
+    const maintSlider = document.getElementById('slider-ap-maint');
+    const tempSlider = document.getElementById('slider-ap-temp');
+
+    if (speedSlider) speedSlider.value = b.production_speed || 800;
+    if (humiditySlider) humiditySlider.value = b.humidity || 55;
+    if (maintSlider) maintSlider.value = 95;
+    if (tempSlider) tempSlider.value = b.temperature || 25.0;
+
+    document.getElementById('lbl-ap-speed').textContent = `${speedSlider.value} RPM`;
+    document.getElementById('lbl-ap-humidity').textContent = `${humiditySlider.value}% RH`;
+    document.getElementById('lbl-ap-maint').textContent = `${maintSlider.value} Days`;
+    document.getElementById('lbl-ap-temp').textContent = `${parseFloat(tempSlider.value).toFixed(1)}°C`;
+
+    updateAfterPredictionSimulation();
+    showToast('Sliders reset to batch telemetry values', 'info');
+  }
+}
+
+function applyAfterPredictionLeversToForm() {
+  const speed = document.getElementById('slider-ap-speed')?.value;
+  const humidity = document.getElementById('slider-ap-humidity')?.value;
+  const maintDays = parseInt(document.getElementById('slider-ap-maint')?.value) || 10;
+  const temp = document.getElementById('slider-ap-temp')?.value;
+
+  if (speed) document.getElementById('ap-speed').value = speed;
+  if (humidity) document.getElementById('ap-humidity').value = humidity;
+  if (temp) document.getElementById('ap-temperature').value = temp;
+  
+  // Set maintenance date
+  const dateStr = getDaysAgoDate(maintDays);
+  document.getElementById('ap-maint-date').value = dateStr;
+
+  // Estimate new reduced waste
+  const prod = parseFloat(document.getElementById('ap-total-prod')?.value) || 1000;
+  const simWasteVal = document.getElementById('ap-after-waste-val')?.textContent || '3.8%';
+  const newPct = parseFloat(simWasteVal) || 3.8;
+  const newWasteKg = (newPct / 100) * prod;
+  document.getElementById('ap-waste-qty').value = newWasteKg.toFixed(1);
+
+  document.getElementById('ap-total-prod').dispatchEvent(new Event('input'));
+  showToast('Optimized After-Prediction levers applied to form!', 'success');
+}
+
+async function saveAfterPredictionBatch() {
+  await runAfterPrediction(true);
 }
 
 
@@ -1407,8 +2034,14 @@ async function inspectBatch(batchId) {
     document.getElementById('modal-batch-id').textContent = `Batch: ${b.batch_id}`;
     
     const modalBadge = document.getElementById('modal-risk-badge');
-    modalBadge.className = `badge badge-${b.risk_level?.toLowerCase().replace(' ', '-')}`;
-    modalBadge.textContent = `${b.risk_level} (${b.risk_score?.toFixed(0)}/100)`;
+    if (modalBadge) {
+      let modalBadgeClass = 'badge-normal';
+      if (b.risk_level === 'HIGH RISK') modalBadgeClass = 'badge-danger';
+      else if (b.risk_level === 'WARNING') modalBadgeClass = 'badge-warning';
+      else if (b.risk_level === 'INVALID') modalBadgeClass = 'badge-invalid';
+      modalBadge.className = `badge ${modalBadgeClass}`;
+      modalBadge.textContent = `${b.risk_level || 'UNKNOWN'} (${b.risk_score != null ? b.risk_score.toFixed(0) : '0'}/100)`;
+    }
 
     // Fetch deep diagnostic for reason cards
     let diag = null;
@@ -1563,6 +2196,27 @@ function initFileUpload() {
       handleFileUpload(fileInput.files[0]);
     }
   });
+
+  // Download Sample CSV Template
+  document.getElementById('btn-download-sample-csv')?.addEventListener('click', () => {
+    const sampleCsv = `Batch ID,Machine ID,Fabric Type,Operator,Shift,Total Production Quantity,Production Speed,Waste Quantity,Machine Age,Last Maintenance Date,Humidity,Temperature
+BATCH-DEMO-001,M01,Cotton,David Kim,Morning,1200,820,42,4.0,${getDaysAgoDate(15)},55,24.5
+BATCH-DEMO-002,M02,Silk,Priya Sharma,Night,900,940,95,6.2,${getDaysAgoDate(85)},38,31.0
+BATCH-DEMO-003,M03,Denim,Carlos Rossi,Afternoon,1500,780,30,8.5,${getDaysAgoDate(10)},62,25.0
+BATCH-DEMO-004,M04,Polyester,Fatima Al-Mansoor,Morning,1600,920,,3.5,${getDaysAgoDate(20)},,26.0
+BATCH-DEMO-005,M08,Cotton,Wei Zhang,Morning,1100,850,38,1.5,${getDaysAgoDate(8)},56,24.0
+`;
+    const blob = new Blob([sampleCsv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.setAttribute('href', url);
+    link.setAttribute('download', 'sample_textile_production_batches.csv');
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    showToast('Sample CSV template downloaded successfully!', 'info');
+  });
 }
 
 async function handleFileUpload(file) {
@@ -1686,8 +2340,10 @@ function renderRiskBadge(riskLevel) {
     return '<span class="badge badge-warning"><i class="fa-solid fa-triangle-exclamation"></i> WARNING</span>';
   } else if (riskLevel === 'HIGH RISK') {
     return '<span class="badge badge-danger"><i class="fa-solid fa-fire"></i> HIGH RISK</span>';
+  } else if (riskLevel === 'INVALID') {
+    return '<span class="badge badge-invalid"><i class="fa-solid fa-ban"></i> INVALID</span>';
   } else {
-    return `<span class="badge badge-subtle">${riskLevel || 'UNKNOWN'}</span>`;
+    return `<span class="badge badge-subtle">${escapeHtml(riskLevel || 'UNKNOWN')}</span>`;
   }
 }
 

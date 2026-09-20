@@ -147,6 +147,43 @@ def save_batch(batch_data: Dict[str, Any], duplicate_strategy: str = "keep_lates
     actions_str = json.dumps(batch_data.get("actions", []))
     created_at = batch_data.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
+    tot_prod = float(batch_data.get("total_production") or 0.0)
+    prod_spd = float(batch_data.get("production_speed") or 0.0)
+    w_qty = float(batch_data.get("waste_quantity") if batch_data.get("waste_quantity") is not None else (batch_data.get("expected_waste_kg") or 0.0))
+    w_pct = float(batch_data.get("waste_percentage") if batch_data.get("waste_percentage") is not None else (batch_data.get("expected_waste_percentage") or 0.0))
+    m_age = float(batch_data.get("machine_age") or 0.0)
+    maint_d = int(batch_data.get("maintenance_age_days") or 0)
+    temp_val = float(batch_data.get("temperature") if batch_data.get("temperature") is not None else 25.0)
+    r_score = float(batch_data.get("risk_score") if batch_data.get("risk_score") is not None else 0.0)
+    c_score = float(batch_data.get("confidence_score") if batch_data.get("confidence_score") is not None else 100.0)
+
+    record_params = (
+        batch_data["batch_id"],
+        batch_data["machine_id"],
+        batch_data["fabric_type"],
+        batch_data["operator"],
+        batch_data["shift"],
+        tot_prod,
+        prod_spd,
+        w_qty,
+        w_pct,
+        m_age,
+        batch_data.get("last_maintenance_date"),
+        maint_d,
+        batch_data.get("humidity"),
+        1 if batch_data.get("humidity_imputed") else 0,
+        temp_val,
+        batch_data.get("risk_level", "NORMAL"),
+        r_score,
+        c_score,
+        1 if batch_data.get("is_abnormal") else 0,
+        reasons_str,
+        actions_str,
+        1 if batch_data.get("is_valid", True) else 0,
+        batch_data.get("validation_error"),
+        created_at
+    )
+
     if duplicate_strategy == "keep_latest":
         cursor.execute("""
             INSERT OR REPLACE INTO batches (
@@ -157,32 +194,7 @@ def save_batch(batch_data: Dict[str, Any], duplicate_strategy: str = "keep_lates
                 risk_level, risk_score, confidence_score, is_abnormal,
                 reasons_json, actions_json, is_valid, validation_error, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            batch_data["batch_id"],
-            batch_data["machine_id"],
-            batch_data["fabric_type"],
-            batch_data["operator"],
-            batch_data["shift"],
-            float(batch_data.get("total_production", 0)),
-            float(batch_data.get("production_speed", 0)),
-            float(batch_data.get("waste_quantity", 0)),
-            float(batch_data.get("waste_percentage", 0)),
-            float(batch_data.get("machine_age", 0)),
-            batch_data.get("last_maintenance_date"),
-            int(batch_data.get("maintenance_age_days", 0)),
-            batch_data.get("humidity"),
-            1 if batch_data.get("humidity_imputed") else 0,
-            float(batch_data.get("temperature", 25.0)),
-            batch_data.get("risk_level", "NORMAL"),
-            float(batch_data.get("risk_score", 0)),
-            float(batch_data.get("confidence_score", 100)),
-            1 if batch_data.get("is_abnormal") else 0,
-            reasons_str,
-            actions_str,
-            1 if batch_data.get("is_valid", True) else 0,
-            batch_data.get("validation_error"),
-            created_at
-        ))
+        """, record_params)
     else:  # reject
         cursor.execute("""
             INSERT OR IGNORE INTO batches (
@@ -193,32 +205,7 @@ def save_batch(batch_data: Dict[str, Any], duplicate_strategy: str = "keep_lates
                 risk_level, risk_score, confidence_score, is_abnormal,
                 reasons_json, actions_json, is_valid, validation_error, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            batch_data["batch_id"],
-            batch_data["machine_id"],
-            batch_data["fabric_type"],
-            batch_data["operator"],
-            batch_data["shift"],
-            float(batch_data.get("total_production", 0)),
-            float(batch_data.get("production_speed", 0)),
-            float(batch_data.get("waste_quantity", 0)),
-            float(batch_data.get("waste_percentage", 0)),
-            float(batch_data.get("machine_age", 0)),
-            batch_data.get("last_maintenance_date"),
-            int(batch_data.get("maintenance_age_days", 0)),
-            batch_data.get("humidity"),
-            1 if batch_data.get("humidity_imputed") else 0,
-            float(batch_data.get("temperature", 25.0)),
-            batch_data.get("risk_level", "NORMAL"),
-            float(batch_data.get("risk_score", 0)),
-            float(batch_data.get("confidence_score", 100)),
-            1 if batch_data.get("is_abnormal") else 0,
-            reasons_str,
-            actions_str,
-            1 if batch_data.get("is_valid", True) else 0,
-            batch_data.get("validation_error"),
-            created_at
-        ))
+        """, record_params)
 
     conn.commit()
     conn.close()
@@ -238,6 +225,43 @@ def save_batches_bulk(batches_list: List[Dict[str, Any]], duplicate_strategy: st
         actions_str = json.dumps(b.get("actions", []))
         created_at = b.get("created_at", datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
 
+        tot_prod = float(b.get("total_production") or 0.0)
+        prod_spd = float(b.get("production_speed") or 0.0)
+        w_qty = float(b.get("waste_quantity") if b.get("waste_quantity") is not None else (b.get("expected_waste_kg") or 0.0))
+        w_pct = float(b.get("waste_percentage") if b.get("waste_percentage") is not None else (b.get("expected_waste_percentage") or 0.0))
+        m_age = float(b.get("machine_age") or 0.0)
+        maint_d = int(b.get("maintenance_age_days") or 0)
+        temp_val = float(b.get("temperature") if b.get("temperature") is not None else 25.0)
+        r_score = float(b.get("risk_score") if b.get("risk_score") is not None else 0.0)
+        c_score = float(b.get("confidence_score") if b.get("confidence_score") is not None else 100.0)
+
+        record_params = (
+            b["batch_id"],
+            b["machine_id"],
+            b["fabric_type"],
+            b["operator"],
+            b["shift"],
+            tot_prod,
+            prod_spd,
+            w_qty,
+            w_pct,
+            m_age,
+            b.get("last_maintenance_date"),
+            maint_d,
+            b.get("humidity"),
+            1 if b.get("humidity_imputed") else 0,
+            temp_val,
+            b.get("risk_level", "NORMAL"),
+            r_score,
+            c_score,
+            1 if b.get("is_abnormal") else 0,
+            reasons_str,
+            actions_str,
+            1 if b.get("is_valid", True) else 0,
+            b.get("validation_error"),
+            created_at
+        )
+
         cursor.execute(f"""
             {verb} INTO batches (
                 batch_id, machine_id, fabric_type, operator, shift,
@@ -247,34 +271,41 @@ def save_batches_bulk(batches_list: List[Dict[str, Any]], duplicate_strategy: st
                 risk_level, risk_score, confidence_score, is_abnormal,
                 reasons_json, actions_json, is_valid, validation_error, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, record_params)
+        count += 1
+
+    conn.commit()
+    conn.close()
+    return count
+
+
+def rescore_batches_in_db(scored_batches: List[Dict[str, Any]]) -> int:
+    """Updates risk_level, risk_score, confidence_score, is_abnormal, reasons, and actions for existing batches in DB."""
+    conn = get_db_connection()
+    cursor = conn.cursor()
+    count = 0
+    for b in scored_batches:
+        reasons_str = json.dumps(b.get("reasons", []))
+        actions_str = json.dumps(b.get("actions", []))
+        cursor.execute("""
+            UPDATE batches
+            SET risk_level = ?,
+                risk_score = ?,
+                confidence_score = ?,
+                is_abnormal = ?,
+                reasons_json = ?,
+                actions_json = ?
+            WHERE batch_id = ?
         """, (
-            b["batch_id"],
-            b["machine_id"],
-            b["fabric_type"],
-            b["operator"],
-            b["shift"],
-            float(b.get("total_production", 0)),
-            float(b.get("production_speed", 0)),
-            float(b.get("waste_quantity", 0)),
-            float(b.get("waste_percentage", 0)),
-            float(b.get("machine_age", 0)),
-            b.get("last_maintenance_date"),
-            int(b.get("maintenance_age_days", 0)),
-            b.get("humidity"),
-            1 if b.get("humidity_imputed") else 0,
-            float(b.get("temperature", 25.0)),
             b.get("risk_level", "NORMAL"),
-            float(b.get("risk_score", 0)),
-            float(b.get("confidence_score", 100)),
+            float(b.get("risk_score", 0.0)),
+            float(b.get("confidence_score", 100.0)),
             1 if b.get("is_abnormal") else 0,
             reasons_str,
             actions_str,
-            1 if b.get("is_valid", True) else 0,
-            b.get("validation_error"),
-            created_at
+            b["batch_id"]
         ))
         count += 1
-
     conn.commit()
     conn.close()
     return count
@@ -310,7 +341,7 @@ def fetch_all_batches(
         query += " AND operator = ?"
         params.append(operator)
     if risk and risk != "ALL":
-        query += " AND risk_level = ?"
+        query += " AND UPPER(risk_level) = UPPER(?)"
         params.append(risk)
     if search:
         query += " AND (batch_id LIKE ? OR machine_id LIKE ? OR fabric_type LIKE ? OR operator LIKE ?)"

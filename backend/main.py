@@ -196,6 +196,48 @@ def predict_single_batch(batch_data: Dict[str, Any], save: bool = Query(False)):
     return result
 
 
+@app.post("/api/predict-expected")
+def predict_expected_waste_endpoint(batch_data: Dict[str, Any], save: bool = Query(False)):
+    """
+    Pre-production Expected Waste Prediction Endpoint:
+    Predicts Expected Waste %, Expected Waste kg, Expected Good Production kg, Likely Range,
+    Risk Classification, Multi-Level Historical Comparison, and Preventive Solutions.
+    """
+    cleaned = validate_and_clean_batch(batch_data)
+    settings = get_settings()
+    
+    # Run continuous regression and expected waste forecast
+    expected_pred = ml_engine.predict_expected_waste(cleaned, settings)
+    
+    # Also run standard risk diagnostics for factor contributions
+    batch_for_diag = dict(cleaned)
+    if batch_for_diag.get("waste_percentage") is None:
+        batch_for_diag["waste_percentage"] = expected_pred.get("expected_waste_percentage", 4.0)
+    pred_batch_res = ml_engine.predict_batch(batch_for_diag, settings)
+    
+    result = {**cleaned, **expected_pred}
+    result["factor_contributions"] = pred_batch_res.get("factor_contributions", {})
+    result["root_cause_analysis"] = pred_batch_res.get("root_cause_analysis", {})
+
+    if save and cleaned.get("is_valid", True):
+        dup_strategy = settings.get("duplicate_strategy", "keep_latest")
+        save_batch(result, duplicate_strategy=dup_strategy)
+        refresh_system_state()
+
+    return result
+
+
+@app.get("/api/model/metrics")
+def get_model_metrics():
+    """Returns continuous regression (MAE, RMSE, R2) and classification training metrics."""
+    return {
+        "is_trained": ml_engine.is_trained,
+        "regression_metrics": ml_engine.regression_metrics,
+        "feature_columns": ml_engine.feature_columns,
+        "total_historical_batches": len(baseline_analyzer.df) if not baseline_analyzer.df.empty else 0
+    }
+
+
 # ----------------------------------------------------
 # 4. File Upload (CSV & Excel)
 # ----------------------------------------------------
